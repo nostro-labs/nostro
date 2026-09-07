@@ -6,17 +6,43 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "files": ["dist"],
-  "engines": { "node": ">=20.11.0" },
-  "repository": { "type": "git", "url": "git+https://github.com/nostro-labs/nostro.git" },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nostro-labs/nostro.git"
+  },
   "homepage": "https://github.com/nostro-labs/nostro",
-  "bugs": { "url": "https://github.com/nostro-labs/nostro/issues" },
-  "keywords": ["stellar", "soroban", "reconciliation", "accounting", "payments", "horizon"],
+  "bugs": {
+    "url": "https://github.com/nostro-labs/nostro/issues"
+  },
+  "keywords": [
+    "stellar",
+    "soroban",
+    "reconciliation",
+    "accounting",
+    "payments",
+    "horizon"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }
