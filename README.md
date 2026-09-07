@@ -1,5 +1,8 @@
 # nostro
 
+[![CI](https://github.com/nostro-labs/nostro/actions/workflows/ci.yml/badge.svg)](https://github.com/nostro-labs/nostro/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
+
 **Payment reconciliation and ledger-to-accounting infrastructure for Stellar.**
 
 > **Status: pre-alpha (`0.0.1`).** The `Money`/`Asset` core is implemented and tested.
