@@ -1,0 +1,22 @@
+{
+  "name": "nostro",
+  "version": "0.0.1",
+  "description": "Payment reconciliation and ledger-to-accounting infrastructure for Stellar.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "files": ["dist"],
+  "engines": { "node": ">=20.11.0" },
+  "repository": { "type": "git", "url": "git+https://github.com/nostro-labs/nostro.git" },
+  "homepage": "https://github.com/nostro-labs/nostro",
+  "bugs": { "url": "https://github.com/nostro-labs/nostro/issues" },
+  "keywords": ["stellar", "soroban", "reconciliation", "accounting", "payments", "horizon"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  }
+}
