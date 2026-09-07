@@ -1,0 +1,37 @@
+name: A payment matched incorrectly
+description: A movement matched the wrong expectation, or failed to match one it should have
+labels: ['type:bug', 'area:matching']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the most valuable report we receive. Every case becomes a permanent fixture,
+        so the corpus grows from real-world behaviour rather than what we imagined.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What went wrong
+      options:
+        - Matched an expectation it should not have (false positive)
+        - Failed to match an expectation it should have (false negative)
+        - Landed in exceptions when it should have matched
+        - Matched, but allocated the wrong amount
+    validations: { required: true }
+  - type: textarea
+    id: movement
+    attributes:
+      label: The movement
+      description: Anonymised. Asset, amount, memo (or muxed id), source, and operation type.
+      render: json
+    validations: { required: true }
+  - type: textarea
+    id: expectation
+    attributes:
+      label: The expectation(s) involved
+      render: json
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened
+    validations: { required: true }

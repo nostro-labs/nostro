@@ -1,0 +1,33 @@
+name: Bug report
+description: Something behaves incorrectly
+labels: ['type:bug']
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Observed behaviour versus what you expected.
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes:
+      label: nostro version
+    validations: { required: true }
+  - type: input
+    id: network
+    attributes:
+      label: Network and Horizon URL
+      placeholder: pubnet — https://horizon.stellar.org
+    validations: { required: true }
+  - type: input
+    id: ledgers
+    attributes:
+      label: Ledger range involved
+      placeholder: 58762517-58762600
+  - type: dropdown
+    id: fixture
+    attributes:
+      label: Can you attach a fixture?
+      description: A recorded fixture makes this reproducible offline and usually fixable same-day.
+      options: ['Yes, attached', 'Yes, but it contains data I cannot share', 'No']
+    validations: { required: true }
