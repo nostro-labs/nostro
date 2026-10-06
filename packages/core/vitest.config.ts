@@ -6,8 +6,16 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**'],
-      // The money module underpins every downstream amount; hold it high.
-      thresholds: { 'src/money/**': { statements: 90, branches: 85, functions: 90, lines: 90 } },
+      thresholds: {
+        statements: 80,
+        branches: 80,
+        functions: 80,
+        lines: 80,
+        // Every downstream amount and record passes through these; hold them high.
+        'src/money/**': { statements: 90, branches: 85, functions: 90, lines: 90 },
+        'src/model/**': { statements: 90, branches: 85, functions: 90, lines: 90 },
+        'src/store/**': { statements: 90, branches: 85, functions: 90, lines: 90 },
+      },
     },
   },
 })
