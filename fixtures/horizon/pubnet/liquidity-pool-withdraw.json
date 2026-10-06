@@ -1,0 +1,108 @@
+{
+  "scenario": "liquidity-pool-withdraw",
+  "network": "testnet",
+  "horizon": "https://horizon.stellar.org",
+  "capturedAt": "2026-10-06T09:58:03+00:00",
+  "sources": [
+    "https://horizon.stellar.org/operations/264345947055157249?join=transactions",
+    "https://horizon.stellar.org/operations/264345947055157249/effects"
+  ],
+  "operation": {
+    "id": "264345947055157249",
+    "paging_token": "264345947055157249",
+    "transaction_successful": true,
+    "source_account": "GCXXI74IL3JH3K4MD2WHTWMQ5FT3CKRLDJORDIK57S7WKIZHWZ567OGT",
+    "type": "liquidity_pool_withdraw",
+    "type_i": 23,
+    "created_at": "2026-03-07T21:05:02Z",
+    "transaction_hash": "7275adab3abaffbaa541f433e1c726ef8a638ce15c3ee7e7e6f7699a3e6e5254",
+    "transaction": {
+      "id": "7275adab3abaffbaa541f433e1c726ef8a638ce15c3ee7e7e6f7699a3e6e5254",
+      "paging_token": "264345947055157248",
+      "successful": true,
+      "hash": "7275adab3abaffbaa541f433e1c726ef8a638ce15c3ee7e7e6f7699a3e6e5254",
+      "ledger": 61547837,
+      "created_at": "2026-03-07T21:05:02Z",
+      "source_account": "GCXXI74IL3JH3K4MD2WHTWMQ5FT3CKRLDJORDIK57S7WKIZHWZ567OGT",
+      "source_account_sequence": "212201784200924519",
+      "fee_account": "GCXXI74IL3JH3K4MD2WHTWMQ5FT3CKRLDJORDIK57S7WKIZHWZ567OGT",
+      "fee_charged": "200",
+      "max_fee": "200000",
+      "operation_count": 2,
+      "envelope_xdr": "AAAAAgAAAACvdH+IXtJ9q4werHnZkOlnsSorGl0RoV38v2UjJ7Z77wADDUAC8eRmAAANZwAAAAEAAAAAAAAAAAAAAABp1B/jAAAAAAAAAAIAAAAAAAAAF//hp3KgXQd7BzS3cu4iRjbr8Fxi3CH2OmRcSI32/oAoAAAAADWUVKQAAAAAAFd8mgAAACEtn3sIAAAAAAAAAAYAAAADAAAAAAAAAAAAAAABWERDAAAAAAAkPJtWlaNwmf2+uJ4dC3VUcxXk5ijdPERKvs0cKr/FtgAAAB4AAAAAAAAAAAAAAAAAAAACJ7Z77wAAAEAO6VKpuTzDC4xDF13Coh7DS8dj35O619VZyqC/fFZ38gx8u/cfQKOVXCmQ+d55RO3lockRTlGr+IUL9RqDJA0HKlsvGgAAAEBC2dOiWrwEgZLW/jkYy7PWzzeckZv2q2KD06RvVPtJfMbFl83PmB5vnEzOa03RNEAy6nBXMKFzH11r6z6TSUYB",
+      "result_xdr": "AAAAAAAAAMgAAAAAAAAAAgAAAAAAAAAXAAAAAAAAAAAAAAAGAAAAAAAAAAA=",
+      "fee_meta_xdr": "AAAAAgAAAAMDqxBkAAAAAAAAAACvdH+IXtJ9q4werHnZkOlnsSorGl0RoV38v2UjJ7Z77wAAAAE6hrEkAvHkZgAADWYAAAPoAAAAAQAAAADEccZDcGLJUGqJNC5TihraQE0vQc8dOiVfQyH3xuDhdQAAAAAAAAAVSW50ZXJzdGVsbGFyLmV4Y2hhbmdlAAAAChQUFAAAAAIAAAAANT8aP63vcJJzJGQCkmcDZOjHF73fF0yCmQYcLcGU41AAAAABAAAAAHvgl9PUVVTbvw9U0AYpMag2qxEV8QU8C6rNCQgqWy8aAAAACgAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAYAAAAAgAAAAAAAAAAAAAAAwAAAAADp2tZAAAAAGmXD/4AAAAAAAAAAQOrJT0AAAAAAAAAAK90f4he0n2rjB6sedmQ6WexKisaXRGhXfy/ZSMntnvvAAAAATqGsFwC8eRmAAANZgAAA+gAAAABAAAAAMRxxkNwYslQaok0LlOKGtpATS9Bzx06JV9DIffG4OF1AAAAAAAAABVJbnRlcnN0ZWxsYXIuZXhjaGFuZ2UAAAAKFBQUAAAAAgAAAAA1Pxo/re9wknMkZAKSZwNk6McXvd8XTIKZBhwtwZTjUAAAAAEAAAAAe+CX09RVVNu/D1TQBikxqDarERXxBTwLqs0JCCpbLxoAAAAKAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAABgAAAACAAAAAAAAAAAAAAADAAAAAAOna1kAAAAAaZcP/gAAAAA=",
+      "memo_type": "none",
+      "signatures": [
+        "DulSqbk8wwuMQxddwqIew0vHY9+TutfVWcqgv3xWd/IMfLv3H0CjlVwpkPneeUTt5aHJEU5Rq/iFC/UagyQNBw==",
+        "QtnTolq8BIGS1v45GMuz1s83nJGb9qtig9Okb1T7SXzGxZfNz5geb5xMzmtN0TRAMupwVzChcx9da+s+k0lGAQ=="
+      ],
+      "preconditions": {
+        "timebounds": {
+          "min_time": "0",
+          "max_time": "1775509475"
+        }
+      }
+    },
+    "liquidity_pool_id": "ffe1a772a05d077b0734b772ee224636ebf05c62dc21f63a645c488df6fe8028",
+    "reserves_min": [
+      {
+        "asset": "native",
+        "amount": "0.5733530"
+      },
+      {
+        "asset": "XDC:GASDZG2WSWRXBGP5X24J4HILOVKHGFPE4YUN2PCEJK7M2HBKX7C3M5VZ",
+        "amount": "14249.9347208"
+      }
+    ],
+    "shares": "89.8913444",
+    "reserves_received": [
+      {
+        "asset": "native",
+        "amount": "0.5739269"
+      },
+      {
+        "asset": "XDC:GASDZG2WSWRXBGP5X24J4HILOVKHGFPE4YUN2PCEJK7M2HBKX7C3M5VZ",
+        "amount": "14264.1989197"
+      }
+    ]
+  },
+  "effects": [
+    {
+      "id": "0264345947055157249-0000000001",
+      "paging_token": "264345947055157249-1",
+      "account": "GCXXI74IL3JH3K4MD2WHTWMQ5FT3CKRLDJORDIK57S7WKIZHWZ567OGT",
+      "type": "liquidity_pool_withdrew",
+      "type_i": 91,
+      "created_at": "2026-03-07T21:05:02Z",
+      "liquidity_pool": {
+        "id": "ffe1a772a05d077b0734b772ee224636ebf05c62dc21f63a645c488df6fe8028",
+        "fee_bp": 30,
+        "type": "constant_product",
+        "total_trustlines": "2",
+        "total_shares": "14.1223076",
+        "reserves": [
+          {
+            "asset": "native",
+            "amount": "0.0901664"
+          },
+          {
+            "asset": "XDC:GASDZG2WSWRXBGP5X24J4HILOVKHGFPE4YUN2PCEJK7M2HBKX7C3M5VZ",
+            "amount": "2240.9655364"
+          }
+        ]
+      },
+      "reserves_received": [
+        {
+          "asset": "native",
+          "amount": "0.5739269"
+        },
+        {
+          "asset": "XDC:GASDZG2WSWRXBGP5X24J4HILOVKHGFPE4YUN2PCEJK7M2HBKX7C3M5VZ",
+          "amount": "14264.1989197"
+        }
+      ],
+      "shares_redeemed": "89.8913444"
+    }
+  ]
+}

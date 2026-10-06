@@ -1,0 +1,74 @@
+{
+  "scenario": "payment-id-memo",
+  "network": "public",
+  "horizon": "https://horizon.stellar.org",
+  "capturedAt": "2026-10-06T09:55:34+00:00",
+  "sources": [
+    "https://horizon.stellar.org/operations/278309117662601217?join=transactions",
+    "https://horizon.stellar.org/operations/278309117662601217/effects"
+  ],
+  "operation": {
+    "id": "278309117662601217",
+    "paging_token": "278309117662601217",
+    "transaction_successful": true,
+    "source_account": "GAZQ5XLSEDZ7WU7Z6IGISYTCORF7SIVFVISFKBTAMQVTLLICI4DU4S7M",
+    "type": "payment",
+    "type_i": 1,
+    "created_at": "2026-10-06T09:50:37Z",
+    "transaction_hash": "f28ea507a520273401594c60eec00aa0c9bf891bdf1f5595e718db0ff580fc5c",
+    "transaction": {
+      "memo": "0",
+      "id": "f28ea507a520273401594c60eec00aa0c9bf891bdf1f5595e718db0ff580fc5c",
+      "paging_token": "278309117662601216",
+      "successful": true,
+      "hash": "f28ea507a520273401594c60eec00aa0c9bf891bdf1f5595e718db0ff580fc5c",
+      "ledger": 64798891,
+      "created_at": "2026-10-06T09:50:37Z",
+      "source_account": "GAZQ5XLSEDZ7WU7Z6IGISYTCORF7SIVFVISFKBTAMQVTLLICI4DU4S7M",
+      "source_account_sequence": "270121750354731035",
+      "fee_account": "GAZQ5XLSEDZ7WU7Z6IGISYTCORF7SIVFVISFKBTAMQVTLLICI4DU4S7M",
+      "fee_charged": "100",
+      "max_fee": "1000000",
+      "operation_count": 1,
+      "envelope_xdr": "AAAAAgAAAAAzDt1yIPP7U/nyDIliYnRL+SKlqiRVBmBkKzWtAkcHTgAPQkADv6pNAAAgGwAAAAIAAAAAAAAAAQAAAAAD3MCsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAABAAAAAQAAAAAzDt1yIPP7U/nyDIliYnRL+SKlqiRVBmBkKzWtAkcHTgAAAAEAAAAAMw7dciDz+1P58gyJYmJ0S/kipaokVQZgZCs1rQJHB04AAAAAAAAAAAAAAAEAAAAAAAAAAQJHB04AAABAA3WKVPp+l1c9hYgKYDG0TfNf3sIKaHx/IPDVwZBxSaYZbeQ7JXRT0NRt3jkqM0rYYRNWqDCn5YFqN55QyqS9BQ==",
+      "result_xdr": "AAAAAAAAAGQAAAAAAAAAAQAAAAAAAAABAAAAAAAAAAA=",
+      "fee_meta_xdr": "AAAAAgAAAAMD3MB+AAAAAAAAAAAzDt1yIPP7U/nyDIliYnRL+SKlqiRVBmBkKzWtAkcHTgAAAAAHrRsfA7+qTQAAIBoAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAADAAAAAAPcwH4AAAAAasTDjAAAAAAAAAABA9zAqwAAAAAAAAAAMw7dciDz+1P58gyJYmJ0S/kipaokVQZgZCs1rQJHB04AAAAAB60auwO/qk0AACAaAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAwAAAAAD3MB+AAAAAGrEw4wAAAAA",
+      "memo_type": "id",
+      "signatures": [
+        "A3WKVPp+l1c9hYgKYDG0TfNf3sIKaHx/IPDVwZBxSaYZbeQ7JXRT0NRt3jkqM0rYYRNWqDCn5YFqN55QyqS9BQ=="
+      ],
+      "preconditions": {
+        "ledgerbounds": {
+          "min_ledger": 0,
+          "max_ledger": 64798892
+        }
+      }
+    },
+    "asset_type": "native",
+    "from": "GAZQ5XLSEDZ7WU7Z6IGISYTCORF7SIVFVISFKBTAMQVTLLICI4DU4S7M",
+    "to": "GAZQ5XLSEDZ7WU7Z6IGISYTCORF7SIVFVISFKBTAMQVTLLICI4DU4S7M",
+    "amount": "0.0000001"
+  },
+  "effects": [
+    {
+      "id": "0278309117662601217-0000000001",
+      "paging_token": "278309117662601217-1",
+      "account": "GAZQ5XLSEDZ7WU7Z6IGISYTCORF7SIVFVISFKBTAMQVTLLICI4DU4S7M",
+      "type": "account_credited",
+      "type_i": 2,
+      "created_at": "2026-10-06T09:50:37Z",
+      "asset_type": "native",
+      "amount": "0.0000001"
+    },
+    {
+      "id": "0278309117662601217-0000000002",
+      "paging_token": "278309117662601217-2",
+      "account": "GAZQ5XLSEDZ7WU7Z6IGISYTCORF7SIVFVISFKBTAMQVTLLICI4DU4S7M",
+      "type": "account_debited",
+      "type_i": 3,
+      "created_at": "2026-10-06T09:50:37Z",
+      "asset_type": "native",
+      "amount": "0.0000001"
+    }
+  ]
+}

@@ -1,0 +1,241 @@
+{
+  "scenario": "path-payment-strict-receive",
+  "network": "public",
+  "horizon": "https://horizon.stellar.org",
+  "capturedAt": "2026-10-06T09:55:34+00:00",
+  "sources": [
+    "https://horizon.stellar.org/operations/278309113367474177?join=transactions",
+    "https://horizon.stellar.org/operations/278309113367474177/effects"
+  ],
+  "operation": {
+    "id": "278309113367474177",
+    "paging_token": "278309113367474177",
+    "transaction_successful": true,
+    "source_account": "GCQN6GZ4ATLRCYPBQB5ZBZEF5WUWYKO76CB7SOSSQXTCDBZPMVOGM7DT",
+    "type": "path_payment_strict_receive",
+    "type_i": 2,
+    "created_at": "2026-10-06T09:50:32Z",
+    "transaction_hash": "df8e714d0b824f3c2978c3f6d13a1e2c3a38bacdb4a58adae6019873d371f51d",
+    "transaction": {
+      "id": "df8e714d0b824f3c2978c3f6d13a1e2c3a38bacdb4a58adae6019873d371f51d",
+      "paging_token": "278309113367474176",
+      "successful": true,
+      "hash": "df8e714d0b824f3c2978c3f6d13a1e2c3a38bacdb4a58adae6019873d371f51d",
+      "ledger": 64798890,
+      "created_at": "2026-10-06T09:50:32Z",
+      "source_account": "GA4TE3J6B6F7I54DN2VUJW2KZTMNV5JBJ7SBWUW7CJQJWO74MQOMFKRX",
+      "source_account_sequence": "278233990094127428",
+      "fee_account": "GA4TE3J6B6F7I54DN2VUJW2KZTMNV5JBJ7SBWUW7CJQJWO74MQOMFKRX",
+      "fee_charged": "100",
+      "max_fee": "50000",
+      "operation_count": 1,
+      "envelope_xdr": "AAAAAgAAAAA5Mm0+D4v0d4Nuq0TbSszY2vUhT+QbUt8SYJs7/GQcwgAAw1AD3HxXAAABRAAAAAEAAAAAAAAAAAAAAABqxMR2AAAAAAAAAAEAAAABAAAAAKDfGzwE1xFh4YB7kOSF7alsKd/wg/k6UoXmIYcvZVxmAAAAAgAAAAAAAAAAAGD74gAAAACg3xs8BNcRYeGAe5Dkhe2pbCnf8IP5OlKF5iGHL2VcZgAAAAAAAAAAAGD74gAAAAMAAAABVzEAAAAAAABNEIqB8v6z8TDxHjf+JD6GMAmCpBH/M2/w2d1C1NZ6tAAAAAFVU0RDAAAAADuZETgO/piLoKiQDrHP5E82b32+lGvtB3JA9/Yk3xXFAAAAAVhSUAAAAAAAbxevnWvOKrClBjNaVKWqpIzv2s3K/6NEm2G4Kywq3xEAAAAAAAAADvxkHMIAAABAh67tvF2frYHjmkHgGsPOfEeZDs47p/eVM/T/xJVGe+krtg1Oba/WHSa+MZkbSIuRKfncT4RulJqIvEdlzvk0AS9lXGYAAABAnpoWS2SgsKi3/zdD5uByTGWwvnXvwJ8P0geir5FZhbYvA8GZIxSJH8GPBK7TKWT+n41e7FRdsZUZ/9zlSrA3CQc27rIAAAAEOTJtCKQtDrQAAAAEOTJtBb4sAt8AAAAEOTJtB/Z8GzEAAAAEOTJtAmmi8xwAAAAEOTJtC7kKAqYAAAAEOTJtBmfPbb4AAAAEOTJtAGpU674AAAAEOTJtAfjb3agAAAAEOTJtCvrEHqgAAAAEOTJtCaQtVnUAAAAEOTJtBPPuSXYAAAAEOTJtAw==",
+      "result_xdr": "AAAAAAAAAGQAAAAAAAAAAQAAAAAAAAACAAAAAAAAAAQAAAACtrGfZ2QXAIo/8Pjb8e//Oa63LO7SRTJwyHhWvS5TGgEAAAABVzEAAAAAAABNEIqB8v6z8TDxHjf+JD6GMAmCpBH/M2/w2d1C1NZ6tAAAABb4DJuaAAAAAAAAAAAAYPvcAAAAAikCxdNvPXFWOs9ss4tQEPH88MdbvXhpl2UuY2awUjfqAAAAAVVTREMAAAAAO5kROA7+mIugqJAOsc/kTzZvfb6Ua+0HckD39iTfFcUAAAAAABT6XQAAAAFXMQAAAAAAAE0QioHy/rPxMPEeN/4kPoYwCYKkEf8zb/DZ3ULU1nq0AAAAFvgMm5oAAAABAAAAAB5iTiaAQKzq9bafQh9+SWFdZDf5kgMNM2P1RfuByWP8AAAAAG7hBSQAAAABWFJQAAAAAABvF6+da84qsKUGM1pUpaqkjO/azcr/o0SbYbgrLCrfEQAAAAAADfMcAAAAAVVTREMAAAAAO5kROA7+mIugqJAOsc/kTzZvfb6Ua+0HckD39iTfFcUAAAAAABT6XQAAAALxjo27+Z7cbUy66aHNiKrMkJg7JVndSNKRPSVsrTTZLgAAAAAAAAAAAGD74gAAAAFYUlAAAAAAAG8Xr51rziqwpQYzWlSlqqSM79rNyv+jRJthuCssKt8RAAAAAAAN8xwAAAAAoN8bPATXEWHhgHuQ5IXtqWwp3/CD+TpSheYhhy9lXGYAAAAAAAAAAABg++IAAAAA",
+      "fee_meta_xdr": "AAAAAgAAAAMD3MCTAAAAAAAAAAA5Mm0+D4v0d4Nuq0TbSszY2vUhT+QbUt8SYJs7/GQcwgAAAAAEbnElA9x8VwAAAUMAAAAMAAAAAAAAAAAAAAAA+f///wAAAAwAAAACLCdL6UiQ5+inGNpF3aK5wt+UQKWs9jrMa94M86QtDrQAAAABAAAAAlx/lUHq/8HQ1dDcKJ7yJnDbij/J/xka+SgNMl5qVOu+AAAAAQAAAAJlgNB+VLUhCMzn4KlT4WLe322CO0krOlrF6paWpC1WdQAAAAEAAAACbuhGm4GdL0oQU6D88DtbByVNqVEbBQo+ayZ1W/rEHqgAAAABAAAAAnUM12URSZFX+YA8zOjYXp64aOn5yZ7YkkQca4e5CgKmAAAAAQAAAAJ54qhqGb5xpcu8SI6Yh1MB/yX4ue61X3rWYFMv9nwbMQAAAAEAAAACgoJO/IT+w8HevdRzfCmpnuoLVEWt/CuIrrtwUmfPbb4AAAABAAAAAoftgWRZLf3g4e7aBGMozIK4KLA/f+vBG8BCKm74292oAAAAAQAAAAKSfCWryXkbXAkvEV5TJhVlwS5wxoy7a0ZJJpOmBzbusgAAAAEAAAACnNJBwN3//i4wZZpJps2cWYNIU/95o3e6jufljb4sAt8AAAABAAAAAroFZKqeWM+ptNFhB8tV66uYWlNHQqC2bTavC/BpovMcAAAAAQAAAAK/3w8eudl9393ZtqWweMNe7NgNvi82iLKDPJYC8+5JdgAAAAEAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAAAAAPcwJMAAAAAasTD9QAAAAAAAAABA9zAqgAAAAAAAAAAOTJtPg+L9HeDbqtE20rM2Nr1IU/kG1LfEmCbO/xkHMIAAAAABG5wwQPcfFcAAAFDAAAADAAAAAAAAAAAAAAAAPn///8AAAAMAAAAAiwnS+lIkOfopxjaRd2iucLflEClrPY6zGveDPOkLQ60AAAAAQAAAAJcf5VB6v/B0NXQ3Cie8iZw24o/yf8ZGvkoDTJealTrvgAAAAEAAAACZYDQflS1IQjM5+CpU+Fi3t9tgjtJKzpaxeqWlqQtVnUAAAABAAAAAm7oRpuBnS9KEFOg/PA7WwclTalRGwUKPmsmdVv6xB6oAAAAAQAAAAJ1DNdlEUmRV/mAPMzo2F6euGjp+cme2JJEHGuHuQoCpgAAAAEAAAACeeKoahm+caXLvEiOmIdTAf8l+LnutV961mBTL/Z8GzEAAAABAAAAAoKCTvyE/sPB3r3Uc3wpqZ7qC1RFrfwriK67cFJnz22+AAAAAQAAAAKH7YFkWS394OHu2gRjKMyCuCiwP3/rwRvAQipu+NvdqAAAAAEAAAACknwlq8l5G1wJLxFeUyYVZcEucMaMu2tGSSaTpgc27rIAAAABAAAAApzSQcDd//4uMGWaSabNnFmDSFP/eaN3uo7n5Y2+LALfAAAAAQAAAAK6BWSqnljPqbTRYQfLVeurmFpTR0Kgtm02rwvwaaLzHAAAAAEAAAACv98PHrnZfd/d2balsHjDXuzYDb4vNoiygzyWAvPuSXYAAAABAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAAAAD3MCTAAAAAGrEw/UAAAAA",
+      "memo_type": "none",
+      "signatures": [
+        "h67tvF2frYHjmkHgGsPOfEeZDs47p/eVM/T/xJVGe+krtg1Oba/WHSa+MZkbSIuRKfncT4RulJqIvEdlzvk0AQ==",
+        "npoWS2SgsKi3/zdD5uByTGWwvnXvwJ8P0geir5FZhbYvA8GZIxSJH8GPBK7TKWT+n41e7FRdsZUZ/9zlSrA3CQ==",
+        "OTJtCA==",
+        "OTJtBQ==",
+        "OTJtBw==",
+        "OTJtAg==",
+        "OTJtCw==",
+        "OTJtBg==",
+        "OTJtAA==",
+        "OTJtAQ==",
+        "OTJtCg==",
+        "OTJtCQ==",
+        "OTJtBA==",
+        "OTJtAw=="
+      ],
+      "preconditions": {
+        "timebounds": {
+          "min_time": "0",
+          "max_time": "1791280246"
+        }
+      }
+    },
+    "asset_type": "native",
+    "from": "GCQN6GZ4ATLRCYPBQB5ZBZEF5WUWYKO76CB7SOSSQXTCDBZPMVOGM7DT",
+    "to": "GCQN6GZ4ATLRCYPBQB5ZBZEF5WUWYKO76CB7SOSSQXTCDBZPMVOGM7DT",
+    "amount": "0.6355938",
+    "path": [
+      {
+        "asset_type": "credit_alphanum4",
+        "asset_code": "W1",
+        "asset_issuer": "GBGRBCUB6L7LH4JQ6EPDP7REH2DDACMCUQI76M3P6DM52QWU2Z5LIEVW"
+      },
+      {
+        "asset_type": "credit_alphanum4",
+        "asset_code": "USDC",
+        "asset_issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
+      },
+      {
+        "asset_type": "credit_alphanum4",
+        "asset_code": "XRP",
+        "asset_issuer": "GBXRPL45NPHCVMFFAYZVUVFFVKSIZ362ZXFP7I2ETNQ3QKZMFLPRDTD5"
+      }
+    ],
+    "source_amount": "0.6355932",
+    "source_max": "0.6355938",
+    "source_asset_type": "native"
+  },
+  "effects": [
+    {
+      "id": "0278309113367474177-0000000001",
+      "paging_token": "278309113367474177-1",
+      "account": "GCQN6GZ4ATLRCYPBQB5ZBZEF5WUWYKO76CB7SOSSQXTCDBZPMVOGM7DT",
+      "type": "account_credited",
+      "type_i": 2,
+      "created_at": "2026-10-06T09:50:32Z",
+      "asset_type": "native",
+      "amount": "0.6355938"
+    },
+    {
+      "id": "0278309113367474177-0000000002",
+      "paging_token": "278309113367474177-2",
+      "account": "GCQN6GZ4ATLRCYPBQB5ZBZEF5WUWYKO76CB7SOSSQXTCDBZPMVOGM7DT",
+      "type": "account_debited",
+      "type_i": 3,
+      "created_at": "2026-10-06T09:50:32Z",
+      "asset_type": "native",
+      "amount": "0.6355932"
+    },
+    {
+      "id": "0278309113367474177-0000000003",
+      "paging_token": "278309113367474177-3",
+      "account": "GCQN6GZ4ATLRCYPBQB5ZBZEF5WUWYKO76CB7SOSSQXTCDBZPMVOGM7DT",
+      "type": "liquidity_pool_trade",
+      "type_i": 92,
+      "created_at": "2026-10-06T09:50:32Z",
+      "liquidity_pool": {
+        "id": "b6b19f676417008a3ff0f8dbf1efff39aeb72ceed2453270c87856bd2e531a01",
+        "fee_bp": 30,
+        "type": "constant_product",
+        "total_trustlines": "2",
+        "total_shares": "28166.7574770",
+        "reserves": [
+          {
+            "asset": "native",
+            "amount": "229.5289129"
+          },
+          {
+            "asset": "W1:GBGRBCUB6L7LH4JQ6EPDP7REH2DDACMCUQI76M3P6DM52QWU2Z5LIEVW",
+            "amount": "3563359.1057620"
+          }
+        ]
+      },
+      "sold": {
+        "asset": "W1:GBGRBCUB6L7LH4JQ6EPDP7REH2DDACMCUQI76M3P6DM52QWU2Z5LIEVW",
+        "amount": "9865.0856346"
+      },
+      "bought": {
+        "asset": "native",
+        "amount": "0.6355932"
+      }
+    },
+    {
+      "id": "0278309113367474177-0000000004",
+      "paging_token": "278309113367474177-4",
+      "account": "GCQN6GZ4ATLRCYPBQB5ZBZEF5WUWYKO76CB7SOSSQXTCDBZPMVOGM7DT",
+      "type": "liquidity_pool_trade",
+      "type_i": 92,
+      "created_at": "2026-10-06T09:50:32Z",
+      "liquidity_pool": {
+        "id": "2902c5d36f3d71563acf6cb38b5010f1fcf0c75bbd786997652e6366b05237ea",
+        "fee_bp": 30,
+        "type": "constant_product",
+        "total_trustlines": "2",
+        "total_shares": "13002.5411019",
+        "reserves": [
+          {
+            "asset": "USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+            "amount": "49.3795166"
+          },
+          {
+            "asset": "W1:GBGRBCUB6L7LH4JQ6EPDP7REH2DDACMCUQI76M3P6DM52QWU2Z5LIEVW",
+            "amount": "3542503.7817406"
+          }
+        ]
+      },
+      "sold": {
+        "asset": "USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+        "amount": "0.1374813"
+      },
+      "bought": {
+        "asset": "W1:GBGRBCUB6L7LH4JQ6EPDP7REH2DDACMCUQI76M3P6DM52QWU2Z5LIEVW",
+        "amount": "9865.0856346"
+      }
+    },
+    {
+      "id": "0278309113367474177-0000000005",
+      "paging_token": "278309113367474177-5",
+      "account": "GCQN6GZ4ATLRCYPBQB5ZBZEF5WUWYKO76CB7SOSSQXTCDBZPMVOGM7DT",
+      "type": "trade",
+      "type_i": 33,
+      "created_at": "2026-10-06T09:50:32Z",
+      "seller": "GAPGETRGQBAKZ2XVW2PUEH36JFQV2ZBX7GJAGDJTMP2UL64BZFR7YBXB",
+      "offer_id": "1860240676",
+      "sold_amount": "0.1374813",
+      "sold_asset_type": "credit_alphanum4",
+      "sold_asset_code": "USDC",
+      "sold_asset_issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      "bought_amount": "0.0914204",
+      "bought_asset_type": "credit_alphanum4",
+      "bought_asset_code": "XRP",
+      "bought_asset_issuer": "GBXRPL45NPHCVMFFAYZVUVFFVKSIZ362ZXFP7I2ETNQ3QKZMFLPRDTD5"
+    },
+    {
+      "id": "0278309113367474177-0000000006",
+      "paging_token": "278309113367474177-6",
+      "account": "GAPGETRGQBAKZ2XVW2PUEH36JFQV2ZBX7GJAGDJTMP2UL64BZFR7YBXB",
+      "type": "trade",
+      "type_i": 33,
+      "created_at": "2026-10-06T09:50:32Z",
+      "seller": "GCQN6GZ4ATLRCYPBQB5ZBZEF5WUWYKO76CB7SOSSQXTCDBZPMVOGM7DT",
+      "offer_id": "1860240676",
+      "sold_amount": "0.0914204",
+      "sold_asset_type": "credit_alphanum4",
+      "sold_asset_code": "XRP",
+      "sold_asset_issuer": "GBXRPL45NPHCVMFFAYZVUVFFVKSIZ362ZXFP7I2ETNQ3QKZMFLPRDTD5",
+      "bought_amount": "0.1374813",
+      "bought_asset_type": "credit_alphanum4",
+      "bought_asset_code": "USDC",
+      "bought_asset_issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
+    },
+    {
+      "id": "0278309113367474177-0000000007",
+      "paging_token": "278309113367474177-7",
+      "account": "GCQN6GZ4ATLRCYPBQB5ZBZEF5WUWYKO76CB7SOSSQXTCDBZPMVOGM7DT",
+      "type": "liquidity_pool_trade",
+      "type_i": 92,
+      "created_at": "2026-10-06T09:50:32Z",
+      "liquidity_pool": {
+        "id": "f18e8dbbf99edc6d4cbae9a1cd88aacc90983b2559dd48d2913d256cad34d92e",
+        "fee_bp": 30,
+        "type": "constant_product",
+        "total_trustlines": "230",
+        "total_shares": "95837.1117774",
+        "reserves": [
+          {
+            "asset": "native",
+            "amount": "332954.0101133"
+          },
+          {
+            "asset": "XRP:GBXRPL45NPHCVMFFAYZVUVFFVKSIZ362ZXFP7I2ETNQ3QKZMFLPRDTD5",
+            "amount": "47746.7187974"
+          }
+        ]
+      },
+      "sold": {
+        "asset": "native",
+        "amount": "0.6355938"
+      },
+      "bought": {
+        "asset": "XRP:GBXRPL45NPHCVMFFAYZVUVFFVKSIZ362ZXFP7I2ETNQ3QKZMFLPRDTD5",
+        "amount": "0.0914204"
+      }
+    }
+  ]
+}

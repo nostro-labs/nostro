@@ -1,0 +1,81 @@
+{
+  "scenario": "payment-text-memo",
+  "network": "public",
+  "horizon": "https://horizon.stellar.org",
+  "capturedAt": "2026-10-06T09:55:34+00:00",
+  "sources": [
+    "https://horizon.stellar.org/operations/278309117662806021?join=transactions",
+    "https://horizon.stellar.org/operations/278309117662806021/effects"
+  ],
+  "operation": {
+    "id": "278309117662806021",
+    "paging_token": "278309117662806021",
+    "transaction_successful": true,
+    "source_account": "GBXLXDPHYPRFH3GTKASNWQK2ZASBUYY2MIQ3Q5PC6XZQ6OSSXQPXXZTX",
+    "type": "payment",
+    "type_i": 1,
+    "created_at": "2026-10-06T09:50:37Z",
+    "transaction_hash": "e85780e225268aa3740c0f0ad4332407c0af17e03516100919843b552f4c246a",
+    "transaction": {
+      "memo": "",
+      "memo_bytes": "",
+      "id": "e85780e225268aa3740c0f0ad4332407c0af17e03516100919843b552f4c246a",
+      "paging_token": "278309117662806016",
+      "successful": true,
+      "hash": "e85780e225268aa3740c0f0ad4332407c0af17e03516100919843b552f4c246a",
+      "ledger": 64798891,
+      "created_at": "2026-10-06T09:50:37Z",
+      "source_account": "GBXLXDPHYPRFH3GTKASNWQK2ZASBUYY2MIQ3Q5PC6XZQ6OSSXQPXXZTX",
+      "source_account_sequence": "244715489790618442",
+      "fee_account": "GBXLXDPHYPRFH3GTKASNWQK2ZASBUYY2MIQ3Q5PC6XZQ6OSSXQPXXZTX",
+      "fee_charged": "500",
+      "max_fee": "500",
+      "operation_count": 5,
+      "envelope_xdr": "AAAAAgAAAABuu43nw+JT7NNQJNtBWsgkGmMaYiG4deL18w86UrwfewAAAfQDZWdxAAFrSgAAAAEAAAAAAAAAAAAAAABqxMWXAAAAAQAAAAAAAAAFAAAAAAAAAAEAAAAAMQi9u9egQKOV94Vsfh28ZuPKzXGp18nr4OaT9opNhgEAAAABSkRNQwAAAADz9hhU3M/CVvT0vkzIUT+qJe/L5Dm/MbVZCFLW8VxYcwAAAAACza5pAAAAAAAAAAEAAAAAdosuQUAhcLnNzKI9ITQQLm/F9UuTn0Vkq6/EViCL0akAAAABSkRNQwAAAADz9hhU3M/CVvT0vkzIUT+qJe/L5Dm/MbVZCFLW8VxYcwAAAAAAaXldAAAAAAAAAAEAAAAArfaCFZbl1lk14eklkdPYEmNO9TP5O5MHk/k75HA4IH8AAAABSkRNQwAAAADz9hhU3M/CVvT0vkzIUT+qJe/L5Dm/MbVZCFLW8VxYcwAAAAAE2ms0AAAAAAAAAAEAAAAAw3pQqMNqZf6/CCcfjWR8jBnuJKMVawh8fsnpU+dBUggAAAABSkRNQwAAAADz9hhU3M/CVvT0vkzIUT+qJe/L5Dm/MbVZCFLW8VxYcwAAAAADSy5DAAAAAAAAAAEAAAAA1OXDN7wNhHkXWZg+iUWljE6dchXPNDnNRhQ9NuSAfnoAAAABSkRNQwAAAADz9hhU3M/CVvT0vkzIUT+qJe/L5Dm/MbVZCFLW8VxYcwAAAAAAeB1iAAAAAAAAAAFSvB97AAAAQIU0MMXe/CVQug5nyMAHAECjfNAnz1UymHlsyIa6/8xL29naa0eC+etdfaxzCKp4lM5lGbYEotylRLIIFch6bAg=",
+      "result_xdr": "AAAAAAAAAfQAAAAAAAAABQAAAAAAAAABAAAAAAAAAAAAAAABAAAAAAAAAAAAAAABAAAAAAAAAAAAAAABAAAAAAAAAAAAAAABAAAAAAAAAAA=",
+      "fee_meta_xdr": "AAAAAgAAAAMD3MBvAAAAAAAAAABuu43nw+JT7NNQJNtBWsgkGmMaYiG4deL18w86UrwfewAAAABcksLoA2VncQABa0kAAAAIAAAAAQAAAADEccZDcGLJUGqJNC5TihraQE0vQc8dOiVfQyH3xuDhdQAAAAAAAAAJbG9ic3RyLmNvAAAAAQAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAADAAAAAAPcwG8AAAAAasTDQQAAAAAAAAABA9zAqwAAAAAAAAAAbruN58PiU+zTUCTbQVrIJBpjGmIhuHXi9fMPOlK8H3sAAAAAXJLA9ANlZ3EAAWtJAAAACAAAAAEAAAAAxHHGQ3BiyVBqiTQuU4oa2kBNL0HPHTolX0Mh98bg4XUAAAAAAAAACWxvYnN0ci5jbwAAAAEAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAwAAAAAD3MBvAAAAAGrEw0EAAAAA",
+      "memo_type": "text",
+      "signatures": [
+        "hTQwxd78JVC6DmfIwAcAQKN80CfPVTKYeWzIhrr/zEvb2dprR4L56119rHMIqniUzmUZtgSi3KVEsggVyHpsCA=="
+      ],
+      "preconditions": {
+        "timebounds": {
+          "min_time": "0",
+          "max_time": "1791280535"
+        }
+      }
+    },
+    "asset_type": "credit_alphanum4",
+    "asset_code": "JDMC",
+    "asset_issuer": "GDZ7MGCU3TH4EVXU6S7EZSCRH6VCL36L4Q436MNVLEEFFVXRLRMHGZX2",
+    "from": "GBXLXDPHYPRFH3GTKASNWQK2ZASBUYY2MIQ3Q5PC6XZQ6OSSXQPXXZTX",
+    "to": "GDKOLQZXXQGYI6IXLGMD5CKFUWGE5HLSCXHTIOONIYKD2NXEQB7HV3SW",
+    "amount": "0.7871842"
+  },
+  "effects": [
+    {
+      "id": "0278309117662806021-0000000001",
+      "paging_token": "278309117662806021-1",
+      "account": "GDKOLQZXXQGYI6IXLGMD5CKFUWGE5HLSCXHTIOONIYKD2NXEQB7HV3SW",
+      "type": "account_credited",
+      "type_i": 2,
+      "created_at": "2026-10-06T09:50:37Z",
+      "asset_type": "credit_alphanum4",
+      "asset_code": "JDMC",
+      "asset_issuer": "GDZ7MGCU3TH4EVXU6S7EZSCRH6VCL36L4Q436MNVLEEFFVXRLRMHGZX2",
+      "amount": "0.7871842"
+    },
+    {
+      "id": "0278309117662806021-0000000002",
+      "paging_token": "278309117662806021-2",
+      "account": "GBXLXDPHYPRFH3GTKASNWQK2ZASBUYY2MIQ3Q5PC6XZQ6OSSXQPXXZTX",
+      "type": "account_debited",
+      "type_i": 3,
+      "created_at": "2026-10-06T09:50:37Z",
+      "asset_type": "credit_alphanum4",
+      "asset_code": "JDMC",
+      "asset_issuer": "GDZ7MGCU3TH4EVXU6S7EZSCRH6VCL36L4Q436MNVLEEFFVXRLRMHGZX2",
+      "amount": "0.7871842"
+    }
+  ]
+}

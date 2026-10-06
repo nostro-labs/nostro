@@ -1,0 +1,80 @@
+{
+  "scenario": "payment-hash-memo",
+  "network": "public",
+  "horizon": "https://horizon.stellar.org",
+  "capturedAt": "2026-10-06T09:55:34+00:00",
+  "sources": [
+    "https://horizon.stellar.org/operations/278309104777621505?join=transactions",
+    "https://horizon.stellar.org/operations/278309104777621505/effects"
+  ],
+  "operation": {
+    "id": "278309104777621505",
+    "paging_token": "278309104777621505",
+    "transaction_successful": true,
+    "source_account": "GCCHTK2CRSS3NK2TKHJHN4WRE2DVYJ3CXUZV3KA6XWGPKSLI4WQSC37U",
+    "type": "payment",
+    "type_i": 1,
+    "created_at": "2026-10-06T09:50:22Z",
+    "transaction_hash": "f0b3587aa4786ef6fa682338176e6d48523903f392a031982d3857070ab05c9d",
+    "transaction": {
+      "memo": "LpDNpTQVhxjrV0t8B37ctqtYbIWqMjOoC4CRosRNRek=",
+      "id": "f0b3587aa4786ef6fa682338176e6d48523903f392a031982d3857070ab05c9d",
+      "paging_token": "278309104777621504",
+      "successful": true,
+      "hash": "f0b3587aa4786ef6fa682338176e6d48523903f392a031982d3857070ab05c9d",
+      "ledger": 64798888,
+      "created_at": "2026-10-06T09:50:22Z",
+      "source_account": "GCCHTK2CRSS3NK2TKHJHN4WRE2DVYJ3CXUZV3KA6XWGPKSLI4WQSC37U",
+      "source_account_sequence": "159888073218675042",
+      "fee_account": "GCCHTK2CRSS3NK2TKHJHN4WRE2DVYJ3CXUZV3KA6XWGPKSLI4WQSC37U",
+      "fee_charged": "100",
+      "max_fee": "1000100",
+      "operation_count": 1,
+      "envelope_xdr": "AAAAAgAAAACEeatCjKW2q1NR0nby0SaHXCdivTNdqB69jPVJaOWhIQAPQqQCOAlbAAVRYgAAAAEAAAAAAAAAAAAAAABqxMR4AAAAAy6QzaU0FYcY61dLfAd+3LarWGyFqjIzqAuAkaLETUXpAAAAAQAAAAAAAAABAAAAACS+T2IxBVVOxAAxDAXCYinaS7BBnXBfHnhGTtdqbgjgAAAAAUpEUAAAAAAAhHmrQoyltqtTUdJ28tEmh1wnYr0zXagevYz1SWjloSEAAAAAAJiWgAAAAAAAAAABaOWhIQAAAECErZv6RHcfuDwaR2HYgnplH8adFCy96/MYJ1hZ83tiuqNOmvr+nxEqWy8GteiVdaNDXG8nB33waPRFG/N6+2cM",
+      "result_xdr": "AAAAAAAAAGQAAAAAAAAAAQAAAAAAAAABAAAAAAAAAAA=",
+      "fee_meta_xdr": "AAAAAgAAAAMD3MBXAAAAAAAAAACEeatCjKW2q1NR0nby0SaHXCdivTNdqB69jPVJaOWhIQAAAAANBUo/AjgJWwAFUWEAAAAAAAAAAAAAAAAAAAAac3RlbGxhci5ibG9ja2NoYWluLmpkcC5jb20AAAEAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAwAAAAAD3MBXAAAAAGrEwskAAAAAAAAAAQPcwKgAAAAAAAAAAIR5q0KMpbarU1HSdvLRJodcJ2K9M12oHr2M9Ulo5aEhAAAAAA0FSdsCOAlbAAVRYQAAAAAAAAAAAAAAAAAAABpzdGVsbGFyLmJsb2NrY2hhaW4uamRwLmNvbQAAAQAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAADAAAAAAPcwFcAAAAAasTCyQAAAAA=",
+      "memo_type": "hash",
+      "signatures": [
+        "hK2b+kR3H7g8Gkdh2IJ6ZR/GnRQsvevzGCdYWfN7YrqjTpr6/p8RKlsvBrXolXWjQ1xvJwd98Gj0RRvzevtnDA=="
+      ],
+      "preconditions": {
+        "timebounds": {
+          "min_time": "0",
+          "max_time": "1791280248"
+        }
+      }
+    },
+    "asset_type": "credit_alphanum4",
+    "asset_code": "JDP",
+    "asset_issuer": "GCCHTK2CRSS3NK2TKHJHN4WRE2DVYJ3CXUZV3KA6XWGPKSLI4WQSC37U",
+    "from": "GCCHTK2CRSS3NK2TKHJHN4WRE2DVYJ3CXUZV3KA6XWGPKSLI4WQSC37U",
+    "to": "GASL4T3CGECVKTWEAAYQYBOCMIU5US5QIGOXAXY6PBDE5V3KNYEOAGJS",
+    "amount": "1.0000000"
+  },
+  "effects": [
+    {
+      "id": "0278309104777621505-0000000001",
+      "paging_token": "278309104777621505-1",
+      "account": "GASL4T3CGECVKTWEAAYQYBOCMIU5US5QIGOXAXY6PBDE5V3KNYEOAGJS",
+      "type": "account_credited",
+      "type_i": 2,
+      "created_at": "2026-10-06T09:50:22Z",
+      "asset_type": "credit_alphanum4",
+      "asset_code": "JDP",
+      "asset_issuer": "GCCHTK2CRSS3NK2TKHJHN4WRE2DVYJ3CXUZV3KA6XWGPKSLI4WQSC37U",
+      "amount": "1.0000000"
+    },
+    {
+      "id": "0278309104777621505-0000000002",
+      "paging_token": "278309104777621505-2",
+      "account": "GCCHTK2CRSS3NK2TKHJHN4WRE2DVYJ3CXUZV3KA6XWGPKSLI4WQSC37U",
+      "type": "account_debited",
+      "type_i": 3,
+      "created_at": "2026-10-06T09:50:22Z",
+      "asset_type": "credit_alphanum4",
+      "asset_code": "JDP",
+      "asset_issuer": "GCCHTK2CRSS3NK2TKHJHN4WRE2DVYJ3CXUZV3KA6XWGPKSLI4WQSC37U",
+      "amount": "1.0000000"
+    }
+  ]
+}

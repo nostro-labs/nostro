@@ -1,0 +1,86 @@
+{
+  "scenario": "manage-offer-crossed",
+  "network": "public",
+  "horizon": "https://horizon.stellar.org",
+  "capturedAt": "2026-10-06T09:55:34+00:00",
+  "sources": [
+    "https://horizon.stellar.org/operations/278309117662547969?join=transactions",
+    "https://horizon.stellar.org/operations/278309117662547969/effects"
+  ],
+  "operation": {
+    "id": "278309117662547969",
+    "paging_token": "278309117662547969",
+    "transaction_successful": true,
+    "source_account": "GDTQQD5EQANIVWGO2LYSVJJWP2IBC2EAPTEIRQHZKWH7WRCF33QDU732",
+    "type": "manage_buy_offer",
+    "type_i": 12,
+    "created_at": "2026-10-06T09:50:37Z",
+    "transaction_hash": "800330c277deeca07e420907ff85e5239d4496ee601c67587b8db4433cdedbf5",
+    "transaction": {
+      "id": "800330c277deeca07e420907ff85e5239d4496ee601c67587b8db4433cdedbf5",
+      "paging_token": "278309117662547968",
+      "successful": true,
+      "hash": "800330c277deeca07e420907ff85e5239d4496ee601c67587b8db4433cdedbf5",
+      "ledger": 64798891,
+      "created_at": "2026-10-06T09:50:37Z",
+      "source_account": "GDTQQD5EQANIVWGO2LYSVJJWP2IBC2EAPTEIRQHZKWH7WRCF33QDU732",
+      "source_account_sequence": "177897966307115724",
+      "fee_account": "GDTQQD5EQANIVWGO2LYSVJJWP2IBC2EAPTEIRQHZKWH7WRCF33QDU732",
+      "fee_charged": "100",
+      "max_fee": "100000",
+      "operation_count": 1,
+      "envelope_xdr": "AAAAAgAAAADnCA+kgBqK2M7S8SqlNn6QEWiAfMiIwPlVj/tERd7gOgABhqACeAVCAAACzAAAAAAAAAAAAAAAAQAAAAEAAAAA5wgPpIAaitjO0vEqpTZ+kBFogHzIiMD5VY/7REXe4DoAAAAMAAAAAAAAAAJPRElOUVVBTlRVTQAAAAAA09sy0z/aVX8x+k6Wfi+QQVWgYUV36RfJC0gSESmqivsAAAAALLQXgAAAAAEAAAABAAAAAAAAAAAAAAAAAAAAAUXe4DoAAABAHRzoPPTZwYQ94mYijNly4RgdtzkWjQIdr9cBxu44MSNO9GYOn5BlPPmcI+nHrgKhtiRbBK2zNFFyhGZvzwfDCQ==",
+      "result_xdr": "AAAAAAAAAGQAAAAAAAAAAQAAAAAAAAAMAAAAAAAAAAEAAAABAAAAAM8elahIoKBb4KFGgtLtKpLlpODYWtvqmbdJQNIC/tW3AAAAAG7CyfcAAAACT0RJTlFVQU5UVU0AAAAAANPbMtM/2lV/MfpOln4vkEFVoGFFd+kXyQtIEhEpqor7AAAAACy0F4AAAAAAAAAAACy0F4AAAAACAAAAAA==",
+      "fee_meta_xdr": "AAAAAgAAAAMD3MCZAAAAAAAAAADnCA+kgBqK2M7S8SqlNn6QEWiAfMiIwPlVj/tERd7gOgAAAAB0WXyjAngFQgAAAssAAACxAAAAAQAAAADEccZDcGLJUGqJNC5TihraQE0vQc8dOiVfQyH3xuDhdQAAAAAAAAAJbG9ic3RyLmNvAAAAAQAAAAAAAAAAAAABAAAAAAKzM5YAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAADAAAAAAPcoZsAAAAAasQpHQAAAAAAAAABA9zAqwAAAAAAAAAA5wgPpIAaitjO0vEqpTZ+kBFogHzIiMD5VY/7REXe4DoAAAAAdFl8PwJ4BUIAAALLAAAAsQAAAAEAAAAAxHHGQ3BiyVBqiTQuU4oa2kBNL0HPHTolX0Mh98bg4XUAAAAAAAAACWxvYnN0ci5jbwAAAAEAAAAAAAAAAAAAAQAAAAACszOWAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAwAAAAAD3KGbAAAAAGrEKR0AAAAA",
+      "memo_type": "none",
+      "signatures": [
+        "HRzoPPTZwYQ94mYijNly4RgdtzkWjQIdr9cBxu44MSNO9GYOn5BlPPmcI+nHrgKhtiRbBK2zNFFyhGZvzwfDCQ=="
+      ]
+    },
+    "amount": "75.0000000",
+    "price": "1.0000000",
+    "price_r": {
+      "n": 1,
+      "d": 1
+    },
+    "buying_asset_type": "credit_alphanum12",
+    "buying_asset_code": "ODINQUANTUM",
+    "buying_asset_issuer": "GDJ5WMWTH7NFK7ZR7JHJM7RPSBAVLIDBIV36SF6JBNEBEEJJVKFPX2ZO",
+    "selling_asset_type": "native",
+    "offer_id": "0"
+  },
+  "effects": [
+    {
+      "id": "0278309117662547969-0000000001",
+      "paging_token": "278309117662547969-1",
+      "account": "GDTQQD5EQANIVWGO2LYSVJJWP2IBC2EAPTEIRQHZKWH7WRCF33QDU732",
+      "type": "trade",
+      "type_i": 33,
+      "created_at": "2026-10-06T09:50:37Z",
+      "seller": "GDHR5FNIJCQKAW7AUFDIFUXNFKJOLJHA3BNNX2UZW5EUBUQC73K3P3KQ",
+      "offer_id": "1858259447",
+      "sold_amount": "75.0000000",
+      "sold_asset_type": "native",
+      "bought_amount": "75.0000000",
+      "bought_asset_type": "credit_alphanum12",
+      "bought_asset_code": "ODINQUANTUM",
+      "bought_asset_issuer": "GDJ5WMWTH7NFK7ZR7JHJM7RPSBAVLIDBIV36SF6JBNEBEEJJVKFPX2ZO"
+    },
+    {
+      "id": "0278309117662547969-0000000002",
+      "paging_token": "278309117662547969-2",
+      "account": "GDHR5FNIJCQKAW7AUFDIFUXNFKJOLJHA3BNNX2UZW5EUBUQC73K3P3KQ",
+      "type": "trade",
+      "type_i": 33,
+      "created_at": "2026-10-06T09:50:37Z",
+      "seller": "GDTQQD5EQANIVWGO2LYSVJJWP2IBC2EAPTEIRQHZKWH7WRCF33QDU732",
+      "offer_id": "1858259447",
+      "sold_amount": "75.0000000",
+      "sold_asset_type": "credit_alphanum12",
+      "sold_asset_code": "ODINQUANTUM",
+      "sold_asset_issuer": "GDJ5WMWTH7NFK7ZR7JHJM7RPSBAVLIDBIV36SF6JBNEBEEJJVKFPX2ZO",
+      "bought_amount": "75.0000000",
+      "bought_asset_type": "native"
+    }
+  ]
+}

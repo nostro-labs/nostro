@@ -1,0 +1,109 @@
+{
+  "scenario": "create-claimable-balance",
+  "network": "public",
+  "horizon": "https://horizon.stellar.org",
+  "capturedAt": "2026-10-06T09:55:34+00:00",
+  "sources": [
+    "https://horizon.stellar.org/operations/278309104777240581?join=transactions",
+    "https://horizon.stellar.org/operations/278309104777240581/effects"
+  ],
+  "operation": {
+    "id": "278309104777240581",
+    "paging_token": "278309104777240581",
+    "transaction_successful": true,
+    "source_account": "GD3ZN2T6QQMKLAGKKMWHHY4FITANVJBTREEJERHTWGWF2GSBPOSHGCLU",
+    "type": "create_claimable_balance",
+    "type_i": 14,
+    "created_at": "2026-10-06T09:50:22Z",
+    "transaction_hash": "2f635180309ed39c0a90d9cf6cc4be8901725c89cb80361013548e57f95724ea",
+    "transaction": {
+      "memo": "\ud83c\udfa3 spam claimed",
+      "memo_bytes": "8J+OoyBzcGFtIGNsYWltZWQ=",
+      "id": "2f635180309ed39c0a90d9cf6cc4be8901725c89cb80361013548e57f95724ea",
+      "paging_token": "278309104777240576",
+      "successful": true,
+      "hash": "2f635180309ed39c0a90d9cf6cc4be8901725c89cb80361013548e57f95724ea",
+      "ledger": 64798888,
+      "created_at": "2026-10-06T09:50:22Z",
+      "source_account": "GD3ZN2T6QQMKLAGKKMWHHY4FITANVJBTREEJERHTWGWF2GSBPOSHGCLU",
+      "source_account_sequence": "183565459124409718",
+      "fee_account": "GD3ZN2T6QQMKLAGKKMWHHY4FITANVJBTREEJERHTWGWF2GSBPOSHGCLU",
+      "fee_charged": "600",
+      "max_fee": "600",
+      "operation_count": 6,
+      "envelope_xdr": "AAAAAgAAAAD3lup+hBilgMpTLHPjhUTA2qQziQiSRPOxrF0aQXukcwAAAlgCjCfQACRVdgAAAAEAAAAAAAAAAAAAAABqxMSZAAAAAQAAABHwn46jIHNwYW0gY2xhaW1lZAAAAAAAAAYAAAABAAAAAPeW6n6EGKWAylMsc+OFRMDapDOJCJJE87GsXRpBe6RzAAAABgAAAAJORVdCRURTAAAAAAAAAAAANXbQ2QDQruJs9nDk7HI/yYrIh/FrnbXuNu5AeqkmB3Z//////////wAAAAEAAAAA95bqfoQYpYDKUyxz44VEwNqkM4kIkkTzsaxdGkF7pHMAAAAPAAAAAAv8/IvOXcU0qGyCvZZs8a6Uvd7xFLoqWx2dohPaT1txAAAAAQAAAAD3lup+hBilgMpTLHPjhUTA2qQziQiSRPOxrF0aQXukcwAAAA8AAAAAbTQJXJZ94dH7Hp0QJSc4DcP5QyFPgd/uEf1j8eH79I0AAAABAAAAAPeW6n6EGKWAylMsc+OFRMDapDOJCJJE87GsXRpBe6RzAAAADwAAAAAoxj42772qYm9PITga66tTfsjsxzcyemFj08/IHQIG6AAAAAEAAAAA95bqfoQYpYDKUyxz44VEwNqkM4kIkkTzsaxdGkF7pHMAAAAOAAAAAk5FV0JFRFMAAAAAAAAAAAA1dtDZANCu4mz2cOTscj/JisiH8Wudte427kB6qSYHdgAAAAAG7T8eAAAAAQAAAAAAAAAA95bqfoQYpYDKUyxz44VEwNqkM4kIkkTzsaxdGkF7pHMAAAAAAAAAAQAAAAD3lup+hBilgMpTLHPjhUTA2qQziQiSRPOxrF0aQXukcwAAAAYAAAACTkVXQkVEUwAAAAAAAAAAADV20NkA0K7ibPZw5OxyP8mKyIfxa5217jbuQHqpJgd2AAAAAAAAAAAAAAAAAAAAAUF7pHMAAABAC36JuFX+DF1nQzOxKq8dL6VSxoWEkoVAASKsAwSz7p3rfgMQ7l3umlhl2HAE5aR/WzfMr2iHnnXXbsN4TkVyAw==",
+      "result_xdr": "AAAAAAAAAlgAAAAAAAAABgAAAAAAAAAGAAAAAAAAAAAAAAAPAAAAAAAAAAAAAAAPAAAAAAAAAAAAAAAPAAAAAAAAAAAAAAAOAAAAAAAAAAA1DB1V+wTCQSneuz8bHUASWPvSZTBQJSrpa9MVnzlT1wAAAAAAAAAGAAAAAAAAAAA=",
+      "fee_meta_xdr": "AAAAAgAAAAMD3MCnAAAAAAAAAAD3lup+hBilgMpTLHPjhUTA2qQziQiSRPOxrF0aQXukcwAAAAEGMWaTAown0AAkVXUAAAAEAAAAAAAAAAAAAAAAAQEBAQAAAAEAAAAA4orkJh8AwvM1GfAPLaL1FVCv2SU3swxz0WOQlrQNhuYAAAABAAAAAQAAAAAAAAAAAAAAAAESqIAAAAACAAAAAAAAAHkAAAABAAAAAAAAAAMAAAAAA9zApwAAAABqxMRZAAAAAAAAAAED3MCoAAAAAAAAAAD3lup+hBilgMpTLHPjhUTA2qQziQiSRPOxrF0aQXukcwAAAAEGMWQ7Aown0AAkVXUAAAAEAAAAAAAAAAAAAAAAAQEBAQAAAAEAAAAA4orkJh8AwvM1GfAPLaL1FVCv2SU3swxz0WOQlrQNhuYAAAABAAAAAQAAAAAAAAAAAAAAAAESqIAAAAACAAAAAAAAAHkAAAABAAAAAAAAAAMAAAAAA9zApwAAAABqxMRZAAAAAA==",
+      "memo_type": "text",
+      "signatures": [
+        "C36JuFX+DF1nQzOxKq8dL6VSxoWEkoVAASKsAwSz7p3rfgMQ7l3umlhl2HAE5aR/WzfMr2iHnnXXbsN4TkVyAw=="
+      ],
+      "preconditions": {
+        "timebounds": {
+          "min_time": "0",
+          "max_time": "1791280281"
+        }
+      }
+    },
+    "sponsor": "GD3ZN2T6QQMKLAGKKMWHHY4FITANVJBTREEJERHTWGWF2GSBPOSHGCLU",
+    "asset": "NEWBEDS:GA2XNUGZADIK5YTM6ZYOJ3DSH7EYVSEH6FVZ3NPOG3XEA6VJEYDXNEWB",
+    "amount": "11.6211486",
+    "claimants": [
+      {
+        "destination": "GD3ZN2T6QQMKLAGKKMWHHY4FITANVJBTREEJERHTWGWF2GSBPOSHGCLU",
+        "predicate": {
+          "unconditional": true
+        }
+      }
+    ]
+  },
+  "effects": [
+    {
+      "id": "0278309104777240581-0000000001",
+      "paging_token": "278309104777240581-1",
+      "account": "GD3ZN2T6QQMKLAGKKMWHHY4FITANVJBTREEJERHTWGWF2GSBPOSHGCLU",
+      "type": "claimable_balance_created",
+      "type_i": 50,
+      "created_at": "2026-10-06T09:50:22Z",
+      "asset": "NEWBEDS:GA2XNUGZADIK5YTM6ZYOJ3DSH7EYVSEH6FVZ3NPOG3XEA6VJEYDXNEWB",
+      "balance_id": "00000000350c1d55fb04c24129debb3f1b1d401258fbd2653050252ae96bd3159f3953d7",
+      "amount": "11.6211486"
+    },
+    {
+      "id": "0278309104777240581-0000000002",
+      "paging_token": "278309104777240581-2",
+      "account": "GD3ZN2T6QQMKLAGKKMWHHY4FITANVJBTREEJERHTWGWF2GSBPOSHGCLU",
+      "type": "claimable_balance_claimant_created",
+      "type_i": 51,
+      "created_at": "2026-10-06T09:50:22Z",
+      "asset": "NEWBEDS:GA2XNUGZADIK5YTM6ZYOJ3DSH7EYVSEH6FVZ3NPOG3XEA6VJEYDXNEWB",
+      "balance_id": "00000000350c1d55fb04c24129debb3f1b1d401258fbd2653050252ae96bd3159f3953d7",
+      "amount": "11.6211486",
+      "predicate": {
+        "unconditional": true
+      }
+    },
+    {
+      "id": "0278309104777240581-0000000003",
+      "paging_token": "278309104777240581-3",
+      "account": "GD3ZN2T6QQMKLAGKKMWHHY4FITANVJBTREEJERHTWGWF2GSBPOSHGCLU",
+      "type": "account_debited",
+      "type_i": 3,
+      "created_at": "2026-10-06T09:50:22Z",
+      "asset_type": "credit_alphanum12",
+      "asset_code": "NEWBEDS",
+      "asset_issuer": "GA2XNUGZADIK5YTM6ZYOJ3DSH7EYVSEH6FVZ3NPOG3XEA6VJEYDXNEWB",
+      "amount": "11.6211486"
+    },
+    {
+      "id": "0278309104777240581-0000000004",
+      "paging_token": "278309104777240581-4",
+      "account": "GD3ZN2T6QQMKLAGKKMWHHY4FITANVJBTREEJERHTWGWF2GSBPOSHGCLU",
+      "type": "claimable_balance_sponsorship_created",
+      "type_i": 69,
+      "created_at": "2026-10-06T09:50:22Z",
+      "balance_id": "00000000350c1d55fb04c24129debb3f1b1d401258fbd2653050252ae96bd3159f3953d7",
+      "sponsor": "GD3ZN2T6QQMKLAGKKMWHHY4FITANVJBTREEJERHTWGWF2GSBPOSHGCLU"
+    }
+  ]
+}
