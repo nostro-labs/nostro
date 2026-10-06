@@ -5,8 +5,10 @@
 
 **Payment reconciliation and ledger-to-accounting infrastructure for Stellar.**
 
-> **Status: pre-alpha (`0.0.1`).** The `Money`/`Asset` core is implemented and tested.
-> Ingestion, matching, and the journal are in progress — see [Roadmap](#roadmap).
+> **Status: pre-alpha (`0.0.1`).** Implemented and tested: the `Money`/`Asset` core, the record
+> model (movements, expectations, allocations, exceptions), and the transactional `Store` contract
+> with an in-memory implementation that passes the shared store-conformance suite.
+> Horizon ingestion, matching, and the journal are in progress — see [Roadmap](#roadmap).
 > Nothing here is production-ready yet, and this README marks what exists versus what doesn't.
 
 ## The problem
