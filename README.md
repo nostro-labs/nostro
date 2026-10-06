@@ -5,11 +5,12 @@
 
 **Payment reconciliation and ledger-to-accounting infrastructure for Stellar.**
 
-> **Status: pre-alpha (`0.0.1`).** Implemented and tested: the `Money`/`Asset` core, the record
-> model (movements, expectations, allocations, exceptions), and the transactional `Store` contract
-> with an in-memory implementation that passes the shared store-conformance suite.
-> Horizon ingestion, matching, and the journal are in progress — see [Roadmap](#roadmap).
-> Nothing here is production-ready yet, and this README marks what exists versus what doesn't.
+> **Status: pre-alpha (`0.0.1`, not yet on npm).** Implemented and tested: the `Money`/`Asset`
+> core, the record model (movements, expectations, allocations, exceptions), the transactional
+> `Store` contract with an in-memory store, and Horizon ingestion (effects and fees) through a
+> bounded `sync()` loop. Matching, the journal, and the SQL stores are in progress — see
+> [Roadmap](#roadmap). Nothing here is production-ready yet, and this README marks what exists
+> versus what doesn't.
 
 ## The problem
 
@@ -37,6 +38,32 @@ That code is wrong in at least six ways, and every one of them is a real inciden
 - A restart re-reads from an unknown cursor and re-applies effects that already committed.
 
 nostro is the layer that gets this right once, so each product doesn't re-derive it badly.
+
+## Ingesting an account (works today)
+
+```ts
+import { HorizonClient, HorizonEffectsSource, HorizonFeesSource, MemoryStore, sync } from 'nostro'
+
+const client = new HorizonClient({ url: 'https://horizon-testnet.stellar.org' })
+const store = new MemoryStore()
+for (const source of [
+  new HorizonEffectsSource({ client, network: 'testnet' }), // every credit, debit, trade, pool move
+  new HorizonFeesSource({ client, network: 'testnet' }), //    fees are not effects; read them too
+]) {
+  const report = await sync({ store, source, tenantId: 'acme', accounts: ['G...'] })
+  console.log(source.name, report.inserted, 'new movements', report.errors)
+}
+```
+
+`sync()` is bounded and resumable: call it again to continue. The cursor advances in the same
+transaction as the movements it covers, so a crash can never skip or double-apply a batch.
+
+**Checked against the network.** `scripts/check-balances.mjs` ingests an account's whole history
+and compares the per-asset sum of its movements with the balances Horizon reports. On 2026-10-06,
+three testnet accounts matched to the stroop, including a DEX-trading account (6,674 movements
+across four assets) and a Soroban bot account (50,875 movements). The rules that make that hold,
+and two places where the obvious reading of Horizon is wrong, are in
+[ADR 0006](./docs/adr/0006-normalising-horizon-effects.md).
 
 ## What it does
 

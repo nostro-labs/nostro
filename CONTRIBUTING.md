@@ -40,8 +40,9 @@ are testable with no network and no database.
 
 ## Recording fixtures
 
-`pnpm nostro-testkit record` proxies Horizon and writes redacted, checksummed JSON into `fixtures/`.
-Every bug fix should arrive with the fixture that reproduces it.
+Fixtures are real Horizon responses; see [`fixtures/horizon/README.md`](./fixtures/horizon/README.md)
+for how they were captured and what each file holds. A recorder that captures them automatically is
+planned. Every bug fix should arrive with the fixture that reproduces it.
 
 ## Claiming an issue
 
