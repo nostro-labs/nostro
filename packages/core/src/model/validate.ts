@@ -125,7 +125,7 @@ export function assertValidNewMovement(m: NewMovement): void {
   if (!Number.isSafeInteger(m.ledger) || m.ledger < 1) {
     throw new ValidationError('ledger', 'must be a positive integer')
   }
-  if (typeof m.txHash !== 'string' || !HEX32_RE.test(m.txHash)) {
+  if (m.txHash != null && (typeof m.txHash !== 'string' || !HEX32_RE.test(m.txHash))) {
     throw new ValidationError('txHash', 'must be 64 lowercase hex characters')
   }
   if (m.operationId != null) text('operationId', m.operationId)

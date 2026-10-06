@@ -160,7 +160,7 @@ export function describeStoreConformance(name: string, makeStore: () => Store | 
         })
         expect(m.memo).toEqual({ type: 'text', value: '�'.repeat(12) })
         await record({ counterparty: `C${'A'.repeat(55)}`, kind: 'fee', direction: 'debit' })
-        await record({ counterparty: null, memo: null, operationId: null })
+        await record({ counterparty: null, memo: null, operationId: null, txHash: null })
         expect(await store.listMovements({ tenantId: T })).toHaveLength(3)
       })
 

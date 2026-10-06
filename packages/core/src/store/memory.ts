@@ -285,7 +285,7 @@ class MemoryTx extends MemoryReader implements StoreTx {
         muxedId: n.muxedId ?? null,
         memo: n.memo == null ? null : Object.freeze({ ...n.memo }),
         ledger: n.ledger,
-        txHash: n.txHash,
+        txHash: n.txHash ?? null,
         operationId: n.operationId ?? null,
         occurredAt: copyDate(n.occurredAt),
         enrichment: n.enrichment ?? 'complete',

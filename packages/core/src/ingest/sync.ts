@@ -155,7 +155,7 @@ function facts(m: Movement | NewMovement): Json {
     muxedId: m.muxedId == null ? null : m.muxedId.toString(),
     memo: m.memo == null ? null : { type: m.memo.type, value: String(m.memo.value) },
     ledger: m.ledger,
-    txHash: m.txHash,
+    txHash: m.txHash ?? null,
     operationId: m.operationId ?? null,
     occurredAt: m.occurredAt.toISOString(),
     enrichment: m.enrichment ?? 'complete',

@@ -91,7 +91,8 @@ export interface Movement {
   readonly muxedId: bigint | null
   readonly memo: Memo | null
   readonly ledger: number
-  readonly txHash: string
+  /** `null` only when enrichment is missing: the source could not say which transaction. */
+  readonly txHash: string | null
   readonly operationId: string | null
   readonly occurredAt: Date
   readonly enrichment: Enrichment
@@ -115,7 +116,7 @@ export interface NewMovement {
   readonly muxedId?: bigint | null
   readonly memo?: Memo | null
   readonly ledger: number
-  readonly txHash: string
+  readonly txHash?: string | null
   readonly operationId?: string | null
   readonly occurredAt: Date
   readonly enrichment?: Enrichment
