@@ -1,6 +1,6 @@
 # ADR 0001 — `/effects` is the authoritative movement feed
 
-**Status:** accepted · 2026-09-07
+**Status:** accepted · 2026-09-07 · amended by [ADR 0006](./0006-normalising-horizon-effects.md)
 
 ## Context
 
