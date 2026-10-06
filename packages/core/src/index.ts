@@ -1,4 +1,5 @@
 export * from './money/index.js'
 export * from './model/index.js'
 export * from './store/index.js'
+export * from './ingest/index.js'
 export * from './sources/horizon/index.js'
