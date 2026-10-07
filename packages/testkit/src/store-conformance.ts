@@ -15,6 +15,7 @@ import {
   TransactionClosedError,
   ValidationError,
   asset,
+  reconcile,
 } from 'nostro'
 
 const T = 'tenant-a'
@@ -559,6 +560,23 @@ export function describeStoreConformance(name: string, makeStore: () => Store | 
       ).rejects.toBeInstanceOf(ValidationError)
       expect(await store.getException(T, ex.id)).toMatchObject({ status: 'open' })
       expect(await store.getException(T2, ex.id)).toBeNull()
+    })
+
+    it('lets two reconcilers run at once without handling any movement twice', async () => {
+      const invoice = await store.transaction((tx) =>
+        tx.insertExpectation({ tenantId: T, reference: 'MUX-7', account: ACCOUNT, amount: usdc('10'), muxedId: 7n }),
+      )
+      for (let i = 0; i < 6; i++) await record({ muxedId: 7n, amount: usdc('2') })
+      const [a, b] = await Promise.all([reconcile({ store, tenantId: T }), reconcile({ store, tenantId: T })])
+      expect(a.errors).toEqual([])
+      expect(b.errors).toEqual([])
+      expect(a.processed + b.processed).toBe(6)
+      expect(a.skipped + b.skipped).toBe(6)
+      // Five payments of 2 settle the 10 owed; the sixth is a duplicate.
+      expect(await store.listAllocations({ tenantId: T, expectationId: invoice.id })).toHaveLength(5)
+      expect((await store.getExpectation(T, invoice.id))!.status).toBe('settled')
+      expect(await store.listExceptions({ tenantId: T, code: 'DUPLICATE_PAYMENT' })).toHaveLength(1)
+      expect(await store.listMovements({ tenantId: T, disposition: 'pending' })).toEqual([])
     })
 
     it('reports errors with stable, typed codes', () => {
