@@ -7,8 +7,9 @@
 
 > **Status: pre-alpha (`0.0.1`, not yet on npm).** Implemented and tested: the `Money`/`Asset`
 > core, the record model (movements, expectations, allocations, exceptions), the transactional
-> `Store` contract with an in-memory store, and Horizon ingestion (effects and fees) through a
-> bounded `sync()` loop. Matching, the journal, and the SQL stores are in progress — see
+> `Store` contract with in-memory, SQLite (`nostro-store-sqlite`) and PostgreSQL
+> (`nostro-store-postgres`) stores that pass one shared conformance suite, and Horizon ingestion
+> (effects and fees) through a bounded `sync()` loop. Matching and the journal are in progress — see
 > [Roadmap](#roadmap). Nothing here is production-ready yet, and this README marks what exists
 > versus what doesn't.
 
