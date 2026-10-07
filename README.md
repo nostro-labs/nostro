@@ -9,8 +9,8 @@
 > core, the record model (movements, expectations, allocations, exceptions), the transactional
 > `Store` contract with in-memory, SQLite (`nostro-store-sqlite`) and PostgreSQL
 > (`nostro-store-postgres`) stores that pass one shared conformance suite, and Horizon ingestion
-> (effects and fees) through a bounded `sync()` loop. Matching and the journal are in progress — see
-> [Roadmap](#roadmap). Nothing here is production-ready yet, and this README marks what exists
+> (effects and fees) through a bounded `sync()` loop, and matching through `reconcile()`. The journal,
+> balance invariants and CLI are in progress — see [Roadmap](#roadmap). Nothing here is production-ready yet, and this README marks what exists
 > versus what doesn't.
 
 ## The problem
@@ -65,6 +65,32 @@ three testnet accounts matched to the stroop, including a DEX-trading account (6
 across four assets) and a Soroban bot account (50,875 movements). The rules that make that hold,
 and two places where the obvious reading of Horizon is wrong, are in
 [ADR 0006](./docs/adr/0006-normalising-horizon-effects.md).
+
+## Reconciling against what you are owed (works today)
+
+```ts
+import { Money, NATIVE, reconcile } from 'nostro'
+
+// Record what you are owed. A muxed id gives this invoice its own M... address.
+await store.transaction((tx) =>
+  tx.insertExpectation({
+    tenantId: 'acme',
+    reference: 'INV-1042',
+    account: 'G...',
+    amount: Money.parse('25', NATIVE),
+    muxedId: 1042n,
+  }),
+)
+
+// After sync(): decide every pending movement.
+const report = await reconcile({ store, tenantId: 'acme' })
+console.log(report.allocated, 'settled', report.exceptions) // e.g. 1 settled { AMBIGUOUS_MATCH: 2 }
+```
+
+Payments are matched by muxed id, memo id or text memo (normalised, so `inv #1042` finds `INV-1042`);
+an amount alone is only ever a suggestion. Overpayments, duplicates, lookalike assets and late
+payments are refused into an exceptions queue with the evidence for each decision. How decisions are
+made, and what is not handled yet: [docs/matching.md](./docs/matching.md).
 
 ## What it does
 
