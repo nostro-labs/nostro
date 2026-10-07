@@ -1,6 +1,15 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  resolve: {
+    // The shared testkit imports `nostro`; point it at this package's source
+    // so tests, testkit and coverage all see one copy of every class.
+    alias: {
+      'nostro-testkit': fileURLToPath(new URL('../testkit/src/index.ts', import.meta.url)),
+      nostro: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+    },
+  },
   test: {
     include: ['test/**/*.test.ts'],
     coverage: {

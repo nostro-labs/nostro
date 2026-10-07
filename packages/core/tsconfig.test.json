@@ -1,5 +1,13 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "rootDir": ".", "noEmit": true },
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true,
+    // Tests and the shared testkit see one copy of core: its source.
+    "paths": {
+      "nostro": ["./src/index.ts"],
+      "nostro-testkit": ["../testkit/src/index.ts"]
+    }
+  },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }

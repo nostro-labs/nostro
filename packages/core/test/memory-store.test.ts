@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { MemoryStore, Money, NATIVE } from '../src/index.js'
-import { describeStoreConformance } from './store-conformance.js'
+import { describeStoreConformance } from 'nostro-testkit'
 
 describeStoreConformance('MemoryStore', () => new MemoryStore())
 

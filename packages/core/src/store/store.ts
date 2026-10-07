@@ -100,7 +100,15 @@ export interface StoreReader {
   getCursor(key: CursorKey): Promise<string | null>
 }
 
-/** Read and write access within a single transaction. */
+/**
+ * Read and write access within a single transaction.
+ *
+ * `getCursor` here is a locking read: once a transaction has read a cursor,
+ * no other transaction can read or write that cursor until it ends. That is
+ * what makes the compare-and-set in `sync()` hold when two workers race. A
+ * SQL store must lock the row (creating it if absent) rather than rely on
+ * its default isolation level.
+ */
 export interface StoreTx extends StoreReader {
   /**
    * Record movements, deduplicated on `(tenantId, network, source, externalId)`.

@@ -7,7 +7,7 @@
  * what notices when one of them doesn't.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { Disposition, NewException, NewMovement, Store, StoreTx } from '../src/index.js'
+import type { Disposition, NewException, NewMovement, Store, StoreTx } from 'nostro'
 import {
   ConstraintError,
   Money,
@@ -15,7 +15,7 @@ import {
   TransactionClosedError,
   ValidationError,
   asset,
-} from '../src/index.js'
+} from 'nostro'
 
 const T = 'tenant-a'
 const T2 = 'tenant-b'
@@ -203,6 +203,22 @@ export function describeStoreConformance(name: string, makeStore: () => Store | 
         expect(await store.getCursor({ ...CURSOR, tenantId: T2 })).toBeNull()
         expect(await store.getCursor({ ...CURSOR, network: 'public' })).toBeNull()
         expect(await store.getCursor({ ...CURSOR, account: OTHER_ACCOUNT })).toBeNull()
+      })
+
+      it('holds a cursor read inside a transaction until that transaction ends', async () => {
+        // Two workers each read the cursor, then advance it. Whichever runs
+        // second must see the first one's write; otherwise both believe they
+        // own the stream and the compare-and-set in sync() is meaningless.
+        const worker = (value: string) =>
+          store.transaction(async (tx) => {
+            const seen = await tx.getCursor(CURSOR)
+            await new Promise((r) => setTimeout(r, 20))
+            await tx.setCursor(CURSOR, value)
+            return seen
+          })
+        const seen = await Promise.all([worker('a'), worker('b')])
+        expect(seen.filter((s) => s === null)).toHaveLength(1)
+        expect(['a', 'b']).toContain(seen.find((s) => s !== null))
       })
 
       it('shows uncommitted writes only inside their own transaction', async () => {
