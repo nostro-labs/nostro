@@ -161,7 +161,10 @@ export function describeStoreConformance(name: string, makeStore: () => Store | 
         expect(m.memo).toEqual({ type: 'text', value: '�'.repeat(12) })
         await record({ counterparty: `C${'A'.repeat(55)}`, kind: 'fee', direction: 'debit' })
         await record({ counterparty: null, memo: null, operationId: null, txHash: null })
-        expect(await store.listMovements({ tenantId: T })).toHaveLength(3)
+        // A text memo is 28 arbitrary bytes, so it can contain NUL.
+        const nul = await record({ memo: { type: 'text', value: 'INV\u00001' } })
+        expect((await store.getMovement(T, nul.id))!.memo).toEqual({ type: 'text', value: 'INV\u00001' })
+        expect(await store.listMovements({ tenantId: T })).toHaveLength(4)
       })
 
       it('serves the pending queue by disposition, account and seq', async () => {
@@ -216,9 +219,16 @@ export function describeStoreConformance(name: string, makeStore: () => Store | 
             await tx.setCursor(CURSOR, value)
             return seen
           })
-        const seen = await Promise.all([worker('a'), worker('b')])
-        expect(seen.filter((s) => s === null)).toHaveLength(1)
-        expect(['a', 'b']).toContain(seen.find((s) => s !== null))
+        // First while the cursor has never been set, then once it exists,
+        // which is the case on every sync after the first.
+        const first = await Promise.all([worker('a'), worker('b')])
+        expect(first.filter((s) => s === null)).toHaveLength(1)
+        expect(['a', 'b']).toContain(first.find((s) => s !== null))
+
+        const before = await store.getCursor(CURSOR)
+        const second = await Promise.all([worker('c'), worker('d')])
+        expect(second.filter((s) => s === before)).toHaveLength(1)
+        expect(['c', 'd']).toContain(second.find((s) => s !== before))
       })
 
       it('shows uncommitted writes only inside their own transaction', async () => {
