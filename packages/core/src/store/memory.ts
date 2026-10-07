@@ -21,7 +21,6 @@ import type {
   Disposition,
   ExceptionRecord,
   Expectation,
-  Memo,
   Movement,
   NewAllocation,
   NewException,
@@ -29,13 +28,11 @@ import type {
   NewMovement,
 } from '../model/index.js'
 import {
-  ValidationError,
   assertValidNewAllocation,
   assertValidNewException,
   assertValidNewExpectation,
   assertValidNewMovement,
 } from '../model/index.js'
-import { Money, isSameCodeDifferentIssuer } from '../money/index.js'
 import type {
   AllocationQuery,
   ExceptionQuery,
@@ -48,6 +45,14 @@ import type {
   StoreReader,
   StoreTx,
 } from './store.js'
+import {
+  checkAllocation,
+  checkCancel,
+  checkCursorValue,
+  checkDisposition,
+  checkResolution,
+  sameFacts,
+} from './rules.js'
 import { ConstraintError, NotFoundError, TransactionClosedError } from './store.js'
 
 export interface MemoryStoreOptions {
@@ -102,33 +107,6 @@ const movementKey = (m: { tenantId: string; network: string; source: string; ext
   key(m.tenantId, m.network, m.source, m.externalId)
 const cursorKey = (k: CursorKey) => key(k.tenantId, k.network, k.source, k.account)
 const copyDate = (d: Date): Date => new Date(d.getTime())
-
-function sameMemo(a: Memo | null, b: Memo | null): boolean {
-  if (a === null || b === null) return a === b
-  return a.type === b.type && a.value === b.value
-}
-
-/** Whether a re-delivered movement states the same facts as the recorded one. */
-function sameFacts(existing: Movement, incoming: Movement): boolean {
-  return (
-    existing.account === incoming.account &&
-    existing.direction === incoming.direction &&
-    existing.kind === incoming.kind &&
-    existing.amount.equals(incoming.amount) &&
-    existing.counterparty === incoming.counterparty &&
-    existing.muxedId === incoming.muxedId &&
-    sameMemo(existing.memo, incoming.memo) &&
-    existing.ledger === incoming.ledger &&
-    existing.txHash === incoming.txHash &&
-    existing.operationId === incoming.operationId &&
-    existing.occurredAt.getTime() === incoming.occurredAt.getTime() &&
-    existing.enrichment === incoming.enrichment
-  )
-}
-
-function sum(amounts: readonly Money[], like: Money): Money {
-  return amounts.reduce((acc, m) => acc.add(m), Money.zero(like.asset, like.decimals))
-}
 
 abstract class MemoryReader implements StoreReader {
   /** The state reads run against: committed state, or a transaction's draft. */
@@ -297,7 +275,7 @@ class MemoryTx extends MemoryReader implements StoreTx {
       const existingId = this.draft.movementKeys.get(k)
       if (existingId !== undefined) {
         const existing = this.draft.movements.get(existingId)!
-        if (sameFacts(existing, candidate)) duplicates.push(existing)
+        if (sameFacts(existing, n)) duplicates.push(existing)
         else conflicts.push({ existing, incoming: n })
         continue
       }
@@ -321,40 +299,13 @@ class MemoryTx extends MemoryReader implements StoreTx {
   ): Promise<Movement> {
     this.check()
     const m = this.movement(tenantId, movementId)
-    const allocated = sum(
-      this.allocationsOf('movementId', m.id).map((a) => a.amount),
-      m.amount,
+    checkDisposition(
+      m,
+      this.allocationsOf('movementId', m.id),
+      [...this.draft.exceptions.values()].filter((e) => e.movementId === m.id),
+      disposition,
+      reason,
     )
-    const exceptions = [...this.draft.exceptions.values()].filter((e) => e.movementId === m.id)
-    const refuse = (why: string): never => {
-      throw new ConstraintError('disposition_unsupported', `cannot mark movement ${m.id} ${disposition}: ${why}`)
-    }
-    switch (disposition) {
-      case 'pending':
-        if (!allocated.isZero()) refuse('it already has allocations')
-        break
-      case 'allocated':
-        if (!allocated.equals(m.amount)) {
-          refuse(`allocations total ${allocated.toString()} of ${m.amount.toString()}`)
-        }
-        break
-      case 'partial':
-        if (allocated.isZero() || allocated.equals(m.amount)) {
-          refuse(`allocations total ${allocated.toString()} of ${m.amount.toString()}`)
-        }
-        if (!exceptions.some((e) => e.status === 'open')) {
-          refuse('no open exception covers the unallocated residual')
-        }
-        break
-      case 'exception':
-        if (exceptions.length === 0) refuse('it has no exceptions')
-        break
-      case 'ignored':
-        if (reason === undefined || reason.trim() === '') refuse('a reason is required')
-        break
-      default:
-        throw new ValidationError('disposition', `unknown disposition ${JSON.stringify(disposition)}`)
-    }
     const next: Movement = Object.freeze({
       ...m,
       disposition,
@@ -366,9 +317,7 @@ class MemoryTx extends MemoryReader implements StoreTx {
 
   async setCursor(k: CursorKey, value: string): Promise<void> {
     this.check()
-    if (typeof value !== 'string' || value === '') {
-      throw new ValidationError('cursor', 'must be a non-empty string')
-    }
+    checkCursorValue(value)
     this.draft.cursors.set(cursorKey(k), value)
   }
 
@@ -409,18 +358,7 @@ class MemoryTx extends MemoryReader implements StoreTx {
   async cancelExpectation(tenantId: string, id: string, reason: string): Promise<Expectation> {
     this.check()
     const e = this.expectation(tenantId, id)
-    if (typeof reason !== 'string' || reason.trim() === '') {
-      throw new ValidationError('reason', 'must be a non-empty string')
-    }
-    if (e.status === 'cancelled') {
-      throw new ConstraintError('expectation_not_open', `expectation ${id} is already cancelled`)
-    }
-    if (e.status !== 'open') {
-      throw new ConstraintError(
-        'expectation_has_allocations',
-        `expectation ${id} is ${e.status}; reverse its allocations before cancelling`,
-      )
-    }
+    checkCancel(e, reason)
     const next: Expectation = Object.freeze({
       ...e,
       status: 'cancelled',
@@ -437,52 +375,13 @@ class MemoryTx extends MemoryReader implements StoreTx {
     const m = this.movement(n.tenantId, n.movementId)
     const e = this.expectation(n.tenantId, n.expectationId)
 
-    if (e.status === 'cancelled') {
-      throw new ConstraintError('allocation_expectation_cancelled', `expectation ${e.id} is cancelled`)
-    }
-    for (const [label, other] of [
-      ['movement', m.amount],
-      ['expectation', e.amount],
-    ] as const) {
-      if (n.amount.asset !== other.asset || n.amount.decimals !== other.decimals) {
-        const lookalike = isSameCodeDifferentIssuer(n.amount.asset, other.asset)
-          ? ' (same code, different issuer: a lookalike asset)'
-          : ''
-        throw new ConstraintError(
-          'allocation_asset',
-          `allocation is in ${n.amount.asset} but the ${label} is in ${other.asset}${lookalike}`,
-        )
-      }
-    }
-    if (m.direction !== e.direction) {
-      throw new ConstraintError(
-        'allocation_direction',
-        `a ${m.direction} movement cannot settle a ${e.direction} expectation`,
-      )
-    }
-
-    const onMovement = this.allocationsOf('movementId', m.id)
-    if (onMovement.some((a) => a.expectationId === e.id)) {
-      throw new ConstraintError(
-        'allocation_unique',
-        `movement ${m.id} is already allocated to expectation ${e.id}`,
-      )
-    }
-    const movementTotal = sum(onMovement.map((a) => a.amount), m.amount).add(n.amount)
-    if (movementTotal.compare(m.amount) > 0) {
-      throw new ConstraintError(
-        'allocation_over_movement',
-        `would allocate ${movementTotal.toString()} of a ${m.amount.toString()} movement`,
-      )
-    }
-    const onExpectation = this.allocationsOf('expectationId', e.id)
-    const expectationTotal = sum(onExpectation.map((a) => a.amount), e.amount).add(n.amount)
-    if (expectationTotal.compare(e.amount) > 0) {
-      throw new ConstraintError(
-        'allocation_over_expectation',
-        `would allocate ${expectationTotal.toString()} against ${e.amount.toString()} expected`,
-      )
-    }
+    const status = checkAllocation(
+      n,
+      m,
+      e,
+      this.allocationsOf('movementId', m.id),
+      this.allocationsOf('expectationId', e.id),
+    )
 
     const now = this.now()
     const allocation: Allocation = Object.freeze({
@@ -500,7 +399,7 @@ class MemoryTx extends MemoryReader implements StoreTx {
       e.id,
       Object.freeze({
         ...e,
-        status: expectationTotal.equals(e.amount) ? 'settled' : 'partially_paid',
+        status,
         updatedAt: now,
       }),
     )
@@ -535,15 +434,7 @@ class MemoryTx extends MemoryReader implements StoreTx {
     this.check()
     const e = this.draft.exceptions.get(id)
     if (e === undefined || e.tenantId !== tenantId) throw new NotFoundError('exception', id)
-    if (resolution.status !== 'resolved' && resolution.status !== 'dismissed') {
-      throw new ValidationError('status', 'must be "resolved" or "dismissed"')
-    }
-    if (typeof resolution.note !== 'string' || resolution.note.trim() === '') {
-      throw new ValidationError('note', 'must be a non-empty string')
-    }
-    if (e.status !== 'open') {
-      throw new ConstraintError('exception_not_open', `exception ${id} is already ${e.status}`)
-    }
+    checkResolution(e, resolution)
     const next: ExceptionRecord = Object.freeze({
       ...e,
       status: resolution.status,
