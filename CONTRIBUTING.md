@@ -8,7 +8,7 @@ pnpm build
 pnpm test
 ```
 
-Node ≥ 20.11, pnpm 10.16.
+Node ≥ 22 (Node 20 reached end-of-life on 2026-04-30), pnpm 10.16.
 
 ## Layering rule
 

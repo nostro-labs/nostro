@@ -19,7 +19,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=20.11.0"
+    "node": ">=22.0.0"
   },
   "repository": {
     "type": "git",
@@ -32,7 +32,7 @@
     "test": "vitest run --coverage"
   },
   "dependencies": {
-    "better-sqlite3": "^11.7.0"
+    "better-sqlite3": "^12.11.1"
   },
   "peerDependencies": {
     "nostro": "workspace:*"
