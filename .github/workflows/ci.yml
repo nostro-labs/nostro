@@ -19,6 +19,21 @@ jobs:
       fail-fast: false
       matrix:
         node: ['20', '22', '24']
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nostro
+          POSTGRES_PASSWORD: nostro
+          POSTGRES_DB: nostro
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nostro"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      NOSTRO_TEST_DATABASE_URL: postgres://nostro:nostro@localhost:5432/nostro
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
