@@ -231,6 +231,21 @@ export function describeStoreConformance(name: string, makeStore: () => Store | 
         expect(['c', 'd']).toContain(second.find((s) => s !== before))
       })
 
+      it('holds a movement read inside a transaction until that transaction ends', async () => {
+        // Two reconcilers pick up the same pending movement; whichever runs
+        // second must see what the first did to it.
+        const m = await record()
+        const worker = (reason: string) =>
+          store.transaction(async (tx) => {
+            const seen = await tx.getMovement(T, m.id)
+            await new Promise((r) => setTimeout(r, 20))
+            if (seen!.disposition !== 'pending') return 'skipped'
+            await tx.setDisposition(T, m.id, 'ignored', reason)
+            return 'handled'
+          })
+        expect((await Promise.all([worker('first'), worker('second')])).sort()).toEqual(['handled', 'skipped'])
+      })
+
       it('shows uncommitted writes only inside their own transaction', async () => {
         await store.transaction(async (tx) => {
           await tx.insertMovements([movement()])

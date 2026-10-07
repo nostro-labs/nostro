@@ -103,11 +103,13 @@ export interface StoreReader {
 /**
  * Read and write access within a single transaction.
  *
- * `getCursor` here is a locking read: once a transaction has read a cursor,
- * no other transaction can read or write that cursor until it ends. That is
- * what makes the compare-and-set in `sync()` hold when two workers race. A
- * SQL store must lock the row (creating it if absent) rather than rely on
- * its default isolation level.
+ * `getCursor` and `getMovement` here are locking reads: once a transaction
+ * has read a cursor or a movement, no other transaction can read or write it
+ * until the first ends. That is what makes the compare-and-set in `sync()`
+ * hold when two workers race, and what lets two reconcilers skip a movement
+ * the other has just handled instead of colliding on it. A SQL store must
+ * lock the row (creating a cursor row if absent) rather than rely on its
+ * default isolation level.
  */
 export interface StoreTx extends StoreReader {
   /**

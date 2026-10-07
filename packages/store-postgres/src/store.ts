@@ -211,12 +211,9 @@ class PgTx extends PgReader implements StoreTx {
   }
 
   private async lockMovement(tenantId: string, id: string): Promise<Movement> {
-    const [row] = await this.run<MovementRow>(
-      `SELECT * FROM ${this.s}.movements WHERE tenant_id = $1 AND id = $2 FOR UPDATE`,
-      [tenantId, id],
-    )
-    if (row === undefined) throw new NotFoundError('movement', id)
-    return toMovement(row)
+    const movement = await this.getMovement(tenantId, id)
+    if (movement === null) throw new NotFoundError('movement', id)
+    return movement
   }
 
   private async lockExpectation(tenantId: string, id: string): Promise<Expectation> {
@@ -226,6 +223,15 @@ class PgTx extends PgReader implements StoreTx {
     )
     if (row === undefined) throw new NotFoundError('expectation', id)
     return toExpectation(row)
+  }
+
+  /** A locking read: the movement is held until the transaction ends. */
+  override async getMovement(tenantId: string, id: string): Promise<Movement | null> {
+    const [row] = await this.run<MovementRow>(
+      `SELECT * FROM ${this.s}.movements WHERE tenant_id = $1 AND id = $2 FOR UPDATE`,
+      [tenantId, id],
+    )
+    return row === undefined ? null : toMovement(row)
   }
 
   /** A locking read: the cursor row is created if absent, then held until the transaction ends. */
