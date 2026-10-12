@@ -90,7 +90,7 @@ export interface Resolution {
 }
 
 /** Read access. Every lookup is scoped by tenant; ids from another tenant read as absent. */
-export interface StoreReader {
+export interface StoreReader extends JournalReader {
   getMovement(tenantId: string, id: string): Promise<Movement | null>
   listMovements(query: MovementQuery): Promise<Movement[]>
   getExpectation(tenantId: string, id: string): Promise<Expectation | null>
@@ -113,7 +113,7 @@ export interface StoreReader {
  * lock the row (creating a cursor row if absent) rather than rely on its
  * default isolation level.
  */
-export interface StoreTx extends StoreReader {
+export interface StoreTx extends StoreReader, JournalTx {
   /**
    * Record movements, deduplicated on `(tenantId, network, source, externalId)`.
    * Never overwrites: a re-delivery is reported as a duplicate or a conflict.

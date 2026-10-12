@@ -34,7 +34,7 @@ describe('SqliteStore', () => {
     await store.migrate()
     await store.close()
     const db = new Database(filename, { readonly: true })
-    expect(db.pragma('user_version', { simple: true })).toBe(1)
+    expect(db.pragma('user_version', { simple: true })).toBe(2)
     expect(db.pragma('journal_mode', { simple: true })).toBe('wal')
     db.close()
   })
@@ -70,6 +70,66 @@ describe('SqliteStore', () => {
       ).toThrow(/CHECK constraint/)
     }
     db.close()
+  })
+
+  it('refuses to edit or delete posted journal entries', async () => {
+    const filename = freshFile()
+    const store = await freshStore(filename)
+    const { inserted } = await store.transaction((tx) =>
+      tx.insertMovements([
+        {
+          tenantId: 't',
+          network: 'testnet',
+          source: 'horizon',
+          externalId: 'e1',
+          account: `G${'A'.repeat(55)}`,
+          direction: 'credit',
+          kind: 'transfer',
+          amount: Money.parse('10', NATIVE),
+          ledger: 1,
+          occurredAt: new Date('2026-10-05T00:00:00Z'),
+        },
+      ]),
+    )
+    const m = inserted[0]!
+    await store.transaction((tx) =>
+      tx.postJournalEntry({
+        tenantId: 't',
+        movementId: m.id,
+        postingNo: 1,
+        kind: 'initial',
+        description: 'Received 10 XLM',
+        lines: [
+          { account: 'cash', role: 'cash', side: 'debit', amount: m.amount },
+          { account: 'unapplied', role: 'unapplied', side: 'credit', amount: m.amount },
+        ],
+      }),
+    )
+    await store.close()
+    const db = new Database(filename)
+    for (const sql of [
+      "UPDATE journal_entries SET description = 'edited'",
+      'DELETE FROM journal_entries',
+      "UPDATE journal_lines SET amount = '1'",
+      'DELETE FROM journal_lines',
+    ]) {
+      expect(() => db.prepare(sql).run()).toThrow(/append-only/)
+    }
+    db.close()
+  })
+
+  it('upgrades a version 1 database with data to version 2', async () => {
+    const filename = freshFile()
+    const store = await freshStore(filename)
+    await store.transaction((tx) => tx.setCursor({ tenantId: 't', network: 'n', source: 's', account: 'a' }, 'kept'))
+    await store.close()
+    const db = new Database(filename)
+    db.exec('DROP TABLE journal_lines; DROP TABLE journal_entries; PRAGMA user_version = 1')
+    db.close()
+    const upgraded = await freshStore(filename)
+    expect(await upgraded.getCursor({ tenantId: 't', network: 'n', source: 's', account: 'a' })).toBe('kept')
+    expect(await upgraded.listJournalEntries({ tenantId: 't' })).toEqual([])
+    await upgraded.close()
   })
 
   it('sees committed data across separate store instances on one file', async () => {

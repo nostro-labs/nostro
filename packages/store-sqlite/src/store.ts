@@ -24,6 +24,8 @@ import type {
   Expectation,
   ExpectationQuery,
   InsertMovementsResult,
+  JournalEntry,
+  JournalQuery,
   Json,
   Memo,
   Movement,
@@ -32,6 +34,7 @@ import type {
   NewAllocation,
   NewException,
   NewExpectation,
+  NewJournalEntry,
   NewMovement,
   Resolution,
   Store,
@@ -46,11 +49,13 @@ import {
   assertValidNewAllocation,
   assertValidNewException,
   assertValidNewExpectation,
+  assertValidNewJournalEntry,
   assertValidNewMovement,
   checkAllocation,
   checkCancel,
   checkCursorValue,
   checkDisposition,
+  checkJournalEntry,
   checkResolution,
   parseAsset,
   sameFacts,
@@ -170,6 +175,31 @@ const toException = (r: Row): ExceptionRecord =>
     resolutionNote: r.resolution_note as string | null,
   })
 
+const toJournalEntry = (r: Row, lines: readonly Row[]): JournalEntry =>
+  Object.freeze({
+    id: r.id as string,
+    tenantId: r.tenant_id as string,
+    seq: r.seq as number,
+    movementId: r.movement_id as string | null,
+    postingNo: r.posting_no as number | null,
+    kind: r.kind as JournalEntry['kind'],
+    effectiveAt: date(r.effective_at)!,
+    postedAt: date(r.posted_at)!,
+    description: r.description as string,
+    lines: Object.freeze(
+      lines.map((l) =>
+        Object.freeze({
+          account: l.account as string,
+          role: l.role as JournalEntry['lines'][number]['role'],
+          side: l.side as JournalEntry['lines'][number]['side'],
+          amount: money(l.amount, l.asset, l.decimals),
+          expectationId: l.expectation_id as string | null,
+          exceptionId: l.exception_id as string | null,
+        }),
+      ),
+    ),
+  })
+
 /** Builds `WHERE` clauses with positional parameters. */
 class Where {
   readonly params: Param[] = []
@@ -269,6 +299,25 @@ class SqliteReader implements StoreReader {
       .add('movement_id = ?', q.movementId)
       .add('expectation_id = ?', q.expectationId)
     return this.all(`SELECT * FROM exceptions${w} ORDER BY seq${w.limit(q.limit)}`, w.params).map(toException)
+  }
+
+  async listJournalEntries(q: JournalQuery): Promise<JournalEntry[]> {
+    const w = new Where()
+      .add('tenant_id = ?', q.tenantId)
+      .add('movement_id = ?', q.movementId)
+      .add('seq > ?', q.afterSeq)
+      .add('effective_at >= ?', q.effectiveFrom?.getTime())
+      .add('effective_at < ?', q.effectiveBefore?.getTime())
+    const selected = `SELECT * FROM journal_entries${w} ORDER BY seq${w.limit(q.limit)}`
+    const entries = this.all(selected, w.params)
+    if (entries.length === 0) return []
+    const lines = this.all(
+      `SELECT * FROM journal_lines WHERE entry_id IN (SELECT id FROM (${selected})) ORDER BY entry_id, line_no`,
+      w.params,
+    )
+    const byEntry = new Map<string, Row[]>()
+    for (const l of lines) byEntry.set(l.entry_id as string, [...(byEntry.get(l.entry_id as string) ?? []), l])
+    return entries.map((e) => toJournalEntry(e, byEntry.get(e.id as string) ?? []))
   }
 
   async getCursor(k: CursorKey): Promise<string | null> {
@@ -489,6 +538,48 @@ class SqliteTx extends SqliteReader implements StoreTx {
     )!
     this.exec('UPDATE expectations SET status = ?, updated_at = ? WHERE id = ?', [status, now, e.id])
     return toAllocation(row)
+  }
+
+  async postJournalEntry(n: NewJournalEntry): Promise<JournalEntry> {
+    assertValidNewJournalEntry(n)
+    // Transactions are serialised, so no other poster can append between this read and the insert.
+    const movement = n.movementId == null ? null : this.movement(n.tenantId, n.movementId)
+    const existing = movement === null ? [] : await this.listJournalEntries({ tenantId: n.tenantId, movementId: movement.id })
+    checkJournalEntry(n, movement, existing)
+    for (const line of n.lines) {
+      if (line.expectationId != null) this.expectation(n.tenantId, line.expectationId)
+      if (line.exceptionId != null && (await this.getException(n.tenantId, line.exceptionId)) === null) {
+        throw new NotFoundError('exception', line.exceptionId)
+      }
+    }
+    const now = this.now().getTime()
+    const entry = this.one(
+      `INSERT INTO journal_entries (id, tenant_id, movement_id, posting_no, kind, effective_at, posted_at, description)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+      [this.ids(), n.tenantId, movement?.id ?? null, n.postingNo ?? null, n.kind, n.effectiveAt?.getTime() ?? now, now, n.description],
+    )!
+    const lines = n.lines.map(
+      (l, i) =>
+        this.one(
+          `INSERT INTO journal_lines (
+             entry_id, line_no, tenant_id, account, role, side, asset, decimals, amount, expectation_id, exception_id
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+          [
+            entry.id as string,
+            i + 1,
+            n.tenantId,
+            l.account,
+            l.role,
+            l.side,
+            l.amount.asset,
+            l.amount.decimals,
+            l.amount.raw.toString(),
+            l.expectationId ?? null,
+            l.exceptionId ?? null,
+          ],
+        )!,
+    )
+    return toJournalEntry(entry, lines)
   }
 
   async openException(n: NewException): Promise<ExceptionRecord> {

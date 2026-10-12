@@ -27,8 +27,6 @@ import type {
   InsertMovementsResult,
   JournalEntry,
   JournalQuery,
-  JournalReader,
-  JournalTx,
   Movement,
   MovementConflict,
   MovementQuery,
@@ -109,7 +107,7 @@ class Where {
   }
 }
 
-class PgReader implements StoreReader, JournalReader {
+class PgReader implements StoreReader {
   constructor(
     protected readonly s: string,
     protected readonly run: Run,
@@ -225,7 +223,7 @@ const isUniqueViolation = (err: unknown, constraint: string): boolean =>
   (err as { code?: string }).code === '23505' &&
   (err as { constraint?: string }).constraint === constraint
 
-class PgTx extends PgReader implements StoreTx, JournalTx {
+class PgTx extends PgReader implements StoreTx {
   private open = true
   private savepoints = 0
 
@@ -565,7 +563,7 @@ class PgTx extends PgReader implements StoreTx, JournalTx {
   }
 }
 
-export class PostgresStore extends PgReader implements Store, JournalReader {
+export class PostgresStore extends PgReader implements Store {
   private readonly pool: Pool
   private readonly ownsPool: boolean
   private readonly schema: string
@@ -620,7 +618,7 @@ export class PostgresStore extends PgReader implements Store, JournalReader {
     }
   }
 
-  async transaction<T>(fn: (tx: StoreTx & JournalTx) => Promise<T>): Promise<T> {
+  async transaction<T>(fn: (tx: StoreTx) => Promise<T>): Promise<T> {
     const client = await this.pool.connect()
     const tx = new PgTx(this.s, client, this.ids, this.now)
     let broken: Error | undefined

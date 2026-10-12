@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto'
 import pg from 'pg'
 import { afterAll, describe, expect, it } from 'vitest'
 import { Money, NATIVE } from 'nostro'
-import { describeJournalConformance, describeStoreConformance } from 'nostro-testkit'
+import { describeStoreConformance } from 'nostro-testkit'
 import { PostgresStore } from '../src/index.js'
 
 const url = process.env.NOSTRO_TEST_DATABASE_URL
@@ -40,7 +40,6 @@ if (pool === undefined) {
   })
 } else {
   describeStoreConformance('PostgresStore', () => freshStore())
-  describeJournalConformance('PostgresStore', () => freshStore())
 
   describe('PostgresStore', () => {
     it('migrates idempotently, even when several processes migrate at once', async () => {

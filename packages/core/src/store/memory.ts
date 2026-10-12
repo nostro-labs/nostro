@@ -42,8 +42,6 @@ import type {
   ExpectationQuery,
   InsertMovementsResult,
   JournalQuery,
-  JournalReader,
-  JournalTx,
   MovementConflict,
   MovementQuery,
   Resolution,
@@ -125,7 +123,7 @@ const movementKey = (m: { tenantId: string; network: string; source: string; ext
 const cursorKey = (k: CursorKey) => key(k.tenantId, k.network, k.source, k.account)
 const copyDate = (d: Date): Date => new Date(d.getTime())
 
-abstract class MemoryReader implements StoreReader, JournalReader {
+abstract class MemoryReader implements StoreReader {
   /** The state reads run against: committed state, or a transaction's draft. */
   protected abstract snapshot(): State
 
@@ -236,7 +234,7 @@ abstract class MemoryReader implements StoreReader, JournalReader {
   }
 }
 
-class MemoryTx extends MemoryReader implements StoreTx, JournalTx {
+class MemoryTx extends MemoryReader implements StoreTx {
   private open = true
 
   constructor(
@@ -525,7 +523,7 @@ class MemoryTx extends MemoryReader implements StoreTx, JournalTx {
   }
 }
 
-export class MemoryStore extends MemoryReader implements Store, JournalReader {
+export class MemoryStore extends MemoryReader implements Store {
   private committed: State = emptyState()
   private tail: Promise<unknown> = Promise.resolve()
   private readonly ids: () => string
@@ -541,7 +539,7 @@ export class MemoryStore extends MemoryReader implements Store, JournalReader {
     return this.committed
   }
 
-  transaction<T>(fn: (tx: StoreTx & JournalTx) => Promise<T>): Promise<T> {
+  transaction<T>(fn: (tx: StoreTx) => Promise<T>): Promise<T> {
     const run = this.tail.then(async () => {
       const tx = new MemoryTx(cloneState(this.committed), this.ids, this.now)
       try {

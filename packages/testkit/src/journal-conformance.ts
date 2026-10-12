@@ -6,12 +6,8 @@
  * leg can only ever net to zero or exactly its amount.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { JournalReader, JournalTx, Movement, NewJournalEntry, NewJournalLine, Store, StoreTx } from 'nostro'
+import type { JournalQuery, Movement, NewJournalEntry, NewJournalLine, Store } from 'nostro'
 import { Money, NotFoundError, ValidationError, asset } from 'nostro'
-
-/** A store whose transactions can post to the journal. */
-export type JournalStore = Omit<Store, 'transaction'> &
-  JournalReader & { transaction<T>(fn: (tx: StoreTx & JournalTx) => Promise<T>): Promise<T> }
 
 const T = 'tenant-a'
 const T2 = 'tenant-b'
@@ -23,9 +19,9 @@ const constraint = (name: string) => ({ name: 'ConstraintError', constraint: nam
 
 let counter = 0
 
-export function describeJournalConformance(name: string, makeStore: () => JournalStore | Promise<JournalStore>): void {
+export function describeJournalConformance(name: string, makeStore: () => Store | Promise<Store>): void {
   describe(`Journal conformance: ${name}`, () => {
-    let store: JournalStore
+    let store: Store
 
     beforeEach(async () => {
       store = await makeStore()
@@ -204,7 +200,7 @@ export function describeJournalConformance(name: string, makeStore: () => Journa
       const ea = await post(entry(a, { effectiveAt: new Date('2026-10-01T00:00:00Z') }))
       const eb = await post(entry(b, { effectiveAt: new Date('2026-10-03T00:00:00Z') }))
       await post(entry(other))
-      const ids = async (q: Omit<Parameters<JournalStore['listJournalEntries']>[0], 'tenantId'>) =>
+      const ids = async (q: Omit<JournalQuery, 'tenantId'>) =>
         (await store.listJournalEntries({ tenantId: T, ...q })).map((e) => e.id)
       expect(await ids({})).toEqual([ea.id, eb.id])
       expect(await ids({ movementId: b.id })).toEqual([eb.id])

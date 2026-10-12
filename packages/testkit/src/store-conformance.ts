@@ -8,6 +8,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Disposition, NewException, NewMovement, Store, StoreTx } from 'nostro'
+import { describeJournalConformance } from './journal-conformance.js'
 import {
   ConstraintError,
   Money,
@@ -55,6 +56,7 @@ function movement(over: Partial<NewMovement> = {}): NewMovement {
 const constraint = (name: string) => ({ name: 'ConstraintError', constraint: name })
 
 export function describeStoreConformance(name: string, makeStore: () => Store | Promise<Store>): void {
+  describeJournalConformance(name, makeStore)
   describe(`Store conformance: ${name}`, () => {
     let store: Store
 

@@ -16,6 +16,24 @@ const DISPOSITIONS = list(['pending', 'allocated', 'partial', 'exception', 'igno
 const MEMO_TYPES = list(['text', 'id', 'hash', 'return'])
 const EXPECTATION_STATUSES = list(['open', 'partially_paid', 'settled', 'cancelled'])
 const EXCEPTION_STATUSES = list(['open', 'resolved', 'dismissed'])
+const LINE_ROLES = list([
+  'cash',
+  'issued',
+  'receivable',
+  'payable',
+  'unapplied',
+  'customer_credit',
+  'unexplained',
+  'network_fees',
+  'uncategorized_income',
+  'uncategorized_expense',
+])
+const ENTRY_KINDS = list(['initial', 'reclass', 'correction'])
+const appendOnly = (table: string) => `
+    CREATE TRIGGER ${table}_no_update BEFORE UPDATE ON ${table}
+      BEGIN SELECT RAISE(ABORT, 'the journal is append-only'); END;
+    CREATE TRIGGER ${table}_no_delete BEFORE DELETE ON ${table}
+      BEGIN SELECT RAISE(ABORT, 'the journal is append-only'); END;`
 const EXCEPTION_CODES = list([
   'UNMATCHED_NO_CANDIDATE',
   'AMBIGUOUS_MATCH',
@@ -148,5 +166,42 @@ export const MIGRATIONS: readonly string[] = [
       value     TEXT NOT NULL,
       PRIMARY KEY (tenant_id, network, source, account)
     );
+  `,
+  // 2: the journal, append-only. Unlike PostgreSQL there is no balance
+  // trigger: amounts are text beyond 64 bits and SQLite cannot sum them
+  // exactly, so balance is enforced by the shared rule in code.
+  `
+    CREATE TABLE journal_entries (
+      seq          INTEGER PRIMARY KEY AUTOINCREMENT,
+      id           TEXT NOT NULL UNIQUE,
+      tenant_id    TEXT NOT NULL,
+      movement_id  TEXT REFERENCES movements (id),
+      posting_no   INTEGER CHECK (posting_no >= 1),
+      kind         TEXT NOT NULL CHECK (kind IN (${ENTRY_KINDS})),
+      effective_at INTEGER NOT NULL,
+      posted_at    INTEGER NOT NULL,
+      description  TEXT NOT NULL,
+      CHECK ((movement_id IS NULL) = (posting_no IS NULL)),
+      UNIQUE (movement_id, posting_no)
+    );
+    CREATE INDEX journal_entries_effective ON journal_entries (tenant_id, effective_at);
+
+    CREATE TABLE journal_lines (
+      entry_id       TEXT NOT NULL REFERENCES journal_entries (id),
+      line_no        INTEGER NOT NULL CHECK (line_no >= 1),
+      tenant_id      TEXT NOT NULL,
+      account        TEXT NOT NULL,
+      role           TEXT NOT NULL CHECK (role IN (${LINE_ROLES})),
+      side           TEXT NOT NULL CHECK (side IN ('debit', 'credit')),
+      asset          TEXT NOT NULL,
+      decimals       INTEGER NOT NULL CHECK (decimals BETWEEN 0 AND 38),
+      amount         TEXT NOT NULL ${positive('amount')},
+      expectation_id TEXT REFERENCES expectations (id),
+      exception_id   TEXT REFERENCES exceptions (id),
+      PRIMARY KEY (entry_id, line_no)
+    );
+    CREATE INDEX journal_lines_account ON journal_lines (tenant_id, account, asset);
+    ${appendOnly('journal_entries')}
+    ${appendOnly('journal_lines')}
   `,
 ]
