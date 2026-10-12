@@ -58,8 +58,33 @@ movement should now be accounted for and how it already is ([ADR 0007](./adr/000
 | One entry per posting number per movement | yes (compare-and-set) | yes (unique index) | yes (unique index) |
 | A movement's cash nets to 0 or its exact amount | yes | no | no |
 
+## Export
+
+```ts
+import { journalCsv, journalCsvRows } from 'nostro'
+
+const october = await journalCsv({ store, tenantId: 'acme', from: new Date('2026-10-01'), to: new Date('2026-11-01') })
+for await (const row of journalCsvRows({ store, tenantId: 'acme' })) process.stdout.write(row) // streams
+```
+
+One row per journal line, RFC 4180 with CRLF line endings. Columns: `entry_id`, `seq`, `kind`,
+`posted_at`, `effective_at`, `description`, `line_no`, `account`, `role`, `asset`, `debit`, `credit`,
+`movement_id`, `tx_hash`, `expectation_reference`, `exception_id`, `exception_code`.
+
+- Amounts are exact decimal strings, never floats, even beyond 64 bits.
+- `from` / `to` select by effective date: `from` inclusive, `to` exclusive.
+- Text that a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@` or a tab) is
+  prefixed with `'`. References and account codes come from users, and these files get opened in
+  spreadsheets. Payment memo text, which the payer controls, is never written.
+
+## Checked against the network
+
+`node scripts/check-balances.mjs --journal <G…>` ingests an account's whole history, reconciles it
+(posting the journal), and checks per asset that the journal's cash for the account equals the
+Horizon balance, that debits equal credits, and that running everything again posts nothing.
+
 ## Not handled yet
 
 - Rules that pick accounts per counterparty, asset or expectation (the chart maps roles only).
 - Accounting periods and soft close. Entries are dated so they can be added without schema changes.
-- Exporters for QuickBooks, Xero and Beancount. A generic CSV export comes next.
+- Exporters for QuickBooks, Xero and Beancount. Today there is the generic CSV above.

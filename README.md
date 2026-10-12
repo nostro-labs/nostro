@@ -10,8 +10,8 @@
 > `Store` contract with in-memory, SQLite (`nostro-store-sqlite`) and PostgreSQL
 > (`nostro-store-postgres`) stores that pass one shared conformance suite, and Horizon ingestion
 > (effects and fees) through a bounded `sync()` loop, matching through `reconcile()`, and a
-> double-entry journal posted as movements are decided. Balance invariants, CSV export and the CLI
-> are in progress — see [Roadmap](#roadmap). Nothing here is production-ready yet, and this README
+> double-entry journal posted as movements are decided, with CSV export. Balance invariants and the
+> CLI are in progress — see [Roadmap](#roadmap). Nothing here is production-ready yet, and this README
 > marks what exists versus what doesn't.
 
 ## The problem
