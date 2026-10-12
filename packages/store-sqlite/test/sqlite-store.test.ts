@@ -34,7 +34,7 @@ describe('SqliteStore', () => {
     await store.migrate()
     await store.close()
     const db = new Database(filename, { readonly: true })
-    expect(db.pragma('user_version', { simple: true })).toBe(2)
+    expect(db.pragma('user_version', { simple: true })).toBe(3)
     expect(db.pragma('journal_mode', { simple: true })).toBe('wal')
     db.close()
   })

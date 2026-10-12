@@ -204,4 +204,10 @@ export const MIGRATIONS: readonly string[] = [
     ${appendOnly('journal_entries')}
     ${appendOnly('journal_lines')}
   `,
+  // 3: look up a movement's entries without scanning the tenant's whole
+  // journal. Without it SQLite answers through the (tenant_id, effective_at)
+  // index, and posting a large backlog becomes quadratic.
+  `
+    CREATE INDEX journal_entries_movement ON journal_entries (tenant_id, movement_id, seq);
+  `,
 ]

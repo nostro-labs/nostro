@@ -74,6 +74,26 @@ export interface SqliteStoreOptions {
 }
 
 type Row = Record<string, unknown>
+
+/**
+ * Prepared statements, per connection. Compiling the same SQL on every call
+ * was a sixth of the time spent reconciling a large backlog.
+ */
+const statements = new WeakMap<Database.Database, Map<string, Database.Statement>>()
+
+function statement(db: Database.Database, sql: string): Database.Statement {
+  let cache = statements.get(db)
+  if (cache === undefined) {
+    cache = new Map()
+    statements.set(db, cache)
+  }
+  let stmt = cache.get(sql)
+  if (stmt === undefined) {
+    stmt = db.prepare(sql)
+    cache.set(sql, stmt)
+  }
+  return stmt
+}
 type Param = string | number | bigint | Buffer | null
 
 const money = (amount: unknown, asset: unknown, decimals: unknown): Money =>
@@ -236,11 +256,11 @@ class SqliteReader implements StoreReader {
   constructor(private readonly connection: () => Database.Database) {}
 
   protected all(sql: string, params: readonly Param[] = []): Row[] {
-    return this.connection().prepare(sql).all(...params) as Row[]
+    return statement(this.connection(), sql).all(...params) as Row[]
   }
 
   protected one(sql: string, params: readonly Param[] = []): Row | undefined {
-    return this.connection().prepare(sql).get(...params) as Row | undefined
+    return statement(this.connection(), sql).get(...params) as Row | undefined
   }
 
   async getMovement(tenantId: string, id: string): Promise<Movement | null> {
@@ -349,7 +369,7 @@ class SqliteTx extends SqliteReader implements StoreTx {
 
   private exec(sql: string, params: readonly Param[]): void {
     if (!this.open) throw new TransactionClosedError()
-    this.db.prepare(sql).run(...params)
+    statement(this.db, sql).run(...params)
   }
 
   private movement(tenantId: string, id: string): Movement {
