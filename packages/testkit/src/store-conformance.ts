@@ -579,6 +579,15 @@ export function describeStoreConformance(name: string, makeStore: () => Store | 
       expect((await store.getExpectation(T, invoice.id))!.status).toBe('settled')
       expect(await store.listExceptions({ tenantId: T, code: 'DUPLICATE_PAYMENT' })).toHaveLength(1)
       expect(await store.listMovements({ tenantId: T, disposition: 'pending' })).toEqual([])
+      // Exactly one journal entry per payment, and the books balance.
+      expect(a.journalEntries + b.journalEntries).toBe(6)
+      const entries = await store.listJournalEntries({ tenantId: T })
+      expect(entries.map((e) => e.postingNo)).toEqual([1, 1, 1, 1, 1, 1])
+      expect(new Set(entries.map((e) => e.movementId)).size).toBe(6)
+      const net = entries
+        .flatMap((e) => e.lines)
+        .reduce((sum, l) => sum + (l.side === 'debit' ? l.amount.raw : -l.amount.raw), 0n)
+      expect(net).toBe(0n)
     })
 
     it('reports errors with stable, typed codes', () => {

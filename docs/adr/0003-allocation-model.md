@@ -1,6 +1,6 @@
 # ADR 0003 — Matches are allocations, not foreign keys
 
-**Status:** accepted · 2026-09-07
+**Status:** accepted · 2026-09-07 · amended by [ADR 0007](./0007-journal-adjustments.md)
 
 ## Context
 

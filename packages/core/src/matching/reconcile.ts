@@ -7,6 +7,9 @@
  * movement it touches leaves `pending` with a disposition that satisfies
  * invariant I1 (the store refuses one that does not).
  *
+ * The journal is posted in the same transaction as each decision, so the
+ * books never lag the decisions (see `postMovement`).
+ *
  * Each movement is handled in its own transaction, and the movement is
  * re-read there with a locking read, so two reconcilers running at once skip
  * what the other has done instead of colliding. Bounded like `sync()`: call
@@ -20,6 +23,8 @@
  * raised as unmatched instead: still a person's job, under a less specific
  * code.
  */
+import type { PostOptions } from '../journal/index.js'
+import { postMovement } from '../journal/index.js'
 import type { ExceptionCode, Expectation, Movement } from '../model/index.js'
 import type { Store, StoreTx } from '../store/index.js'
 import { sumAmounts } from '../store/index.js'
@@ -27,7 +32,7 @@ import type { DecideOptions } from './engine.js'
 import { decide } from './engine.js'
 import type { Candidate } from './types.js'
 
-export interface ReconcileOptions extends DecideOptions {
+export interface ReconcileOptions extends DecideOptions, PostOptions {
   readonly store: Store
   readonly tenantId: string
   /** Pending movements to take per call. Default 100. */
@@ -44,6 +49,8 @@ export interface ReconcileReport {
   /** Exceptions raised, by code. */
   readonly exceptions: Readonly<Partial<Record<ExceptionCode, number>>>
   readonly ignored: number
+  /** Journal entries posted for the movements decided. */
+  readonly journalEntries: number
   /** Already handled by another reconciler by the time this one got to it. */
   readonly skipped: number
   readonly errors: readonly { readonly movementId: string; readonly error: Error }[]
@@ -76,7 +83,18 @@ async function candidatesFor(tx: StoreTx, movement: Movement): Promise<Candidate
 
 type Outcome = 'allocated' | 'partial' | 'ignored' | 'skipped' | ExceptionCode
 
-async function reconcileOne(tx: StoreTx, tenantId: string, id: string, options: DecideOptions): Promise<Outcome> {
+async function reconcileOne(
+  tx: StoreTx,
+  tenantId: string,
+  id: string,
+  options: ReconcileOptions,
+): Promise<{ outcome: Outcome; posted: boolean }> {
+  const outcome = await decideOne(tx, tenantId, id, options)
+  if (outcome === 'skipped') return { outcome, posted: false }
+  return { outcome, posted: (await postMovement(tx, tenantId, id, options)) !== null }
+}
+
+async function decideOne(tx: StoreTx, tenantId: string, id: string, options: DecideOptions): Promise<Outcome> {
   const movement = await tx.getMovement(tenantId, id)
   if (movement === null || movement.disposition !== 'pending') return 'skipped'
 
@@ -132,12 +150,14 @@ export async function reconcile(options: ReconcileOptions): Promise<ReconcileRep
   const { store, tenantId } = options
   const pending = await store.listMovements({ tenantId, disposition: 'pending', limit: options.limit ?? 100 })
   const counts = { allocated: 0, partial: 0, ignored: 0, skipped: 0 }
+  let journalEntries = 0
   const exceptions: Partial<Record<ExceptionCode, number>> = {}
   const errors: { movementId: string; error: Error }[] = []
 
   for (const { id } of pending) {
     try {
-      const outcome = await store.transaction((tx) => reconcileOne(tx, tenantId, id, options))
+      const { outcome, posted } = await store.transaction((tx) => reconcileOne(tx, tenantId, id, options))
+      if (posted) journalEntries += 1
       if (outcome in counts) counts[outcome as keyof typeof counts] += 1
       else exceptions[outcome as ExceptionCode] = (exceptions[outcome as ExceptionCode] ?? 0) + 1
     } catch (err) {
@@ -148,6 +168,7 @@ export async function reconcile(options: ReconcileOptions): Promise<ReconcileRep
   return {
     processed: pending.length - counts.skipped - errors.length,
     ...counts,
+    journalEntries,
     exceptions,
     errors,
   }

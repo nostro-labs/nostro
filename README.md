@@ -9,9 +9,10 @@
 > core, the record model (movements, expectations, allocations, exceptions), the transactional
 > `Store` contract with in-memory, SQLite (`nostro-store-sqlite`) and PostgreSQL
 > (`nostro-store-postgres`) stores that pass one shared conformance suite, and Horizon ingestion
-> (effects and fees) through a bounded `sync()` loop, and matching through `reconcile()`. The journal,
-> balance invariants and CLI are in progress — see [Roadmap](#roadmap). Nothing here is production-ready yet, and this README marks what exists
-> versus what doesn't.
+> (effects and fees) through a bounded `sync()` loop, matching through `reconcile()`, and a
+> double-entry journal posted as movements are decided. Balance invariants, CSV export and the CLI
+> are in progress — see [Roadmap](#roadmap). Nothing here is production-ready yet, and this README
+> marks what exists versus what doesn't.
 
 ## The problem
 
@@ -112,8 +113,9 @@ The headline guarantee, checked in CI against every fixture and by `nostro docto
 > a reason. **Nothing is ever silently dropped.**
 
 Two more back it: **I2** cross-checks accumulated movements against the account's real on-chain
-balance (this is what catches a source that quietly omitted events), and **I3** enforces
-`Σdebits = Σcredits` per currency as a database constraint.
+balance (this is what catches a source that quietly omitted events), and **I3** requires every
+journal entry to balance per asset, `Σdebits = Σcredits`: every store checks it before writing, and
+PostgreSQL checks it again itself at COMMIT. See [docs/journal.md](./docs/journal.md).
 
 ## Non-goals
 
