@@ -274,6 +274,99 @@ export interface CursorKey {
   readonly account: string
 }
 
+/**
+ * What a journal line is for. The chart of accounts maps each role to an
+ * account code; journal arithmetic works on roles, so changing the chart
+ * never re-posts history.
+ */
+export type LineRole =
+  | 'cash'
+  | 'issued'
+  | 'receivable'
+  | 'payable'
+  | 'unapplied'
+  | 'customer_credit'
+  | 'unexplained'
+  | 'network_fees'
+  | 'uncategorized_income'
+  | 'uncategorized_expense'
+
+export const LINE_ROLES: readonly LineRole[] = [
+  'cash',
+  'issued',
+  'receivable',
+  'payable',
+  'unapplied',
+  'customer_credit',
+  'unexplained',
+  'network_fees',
+  'uncategorized_income',
+  'uncategorized_expense',
+]
+
+export type Side = 'debit' | 'credit'
+
+/**
+ * `initial`: a movement's first entry, dated when the money moved.
+ * `reclass`: moves an amount between counter-accounts; cash is untouched.
+ * `correction`: changes the cash leg itself (a source correction).
+ */
+export type JournalEntryKind = 'initial' | 'reclass' | 'correction'
+
+export const JOURNAL_ENTRY_KINDS: readonly JournalEntryKind[] = ['initial', 'reclass', 'correction']
+
+export interface JournalLine {
+  readonly account: string
+  readonly role: LineRole
+  readonly side: Side
+  /** Always positive; the direction lives in `side`. */
+  readonly amount: Money
+  readonly expectationId: string | null
+  readonly exceptionId: string | null
+}
+
+/**
+ * A balanced journal entry. Entries are append-only: a change in how a
+ * movement is accounted for is a further entry, never an edit.
+ */
+export interface JournalEntry {
+  readonly id: string
+  readonly tenantId: string
+  /** Store-assigned posting order. */
+  readonly seq: number
+  /** The movement this entry accounts for; `null` for a manual entry. */
+  readonly movementId: string | null
+  /** 1 for a movement's first entry, then 2, 3, ...; `null` without a movement. */
+  readonly postingNo: number | null
+  readonly kind: JournalEntryKind
+  /** The accounting date. */
+  readonly effectiveAt: Date
+  /** When nostro recorded it. */
+  readonly postedAt: Date
+  readonly description: string
+  readonly lines: readonly JournalLine[]
+}
+
+export interface NewJournalLine {
+  readonly account: string
+  readonly role: LineRole
+  readonly side: Side
+  readonly amount: Money
+  readonly expectationId?: string | null
+  readonly exceptionId?: string | null
+}
+
+export interface NewJournalEntry {
+  readonly tenantId: string
+  readonly movementId?: string | null
+  readonly postingNo?: number | null
+  readonly kind: JournalEntryKind
+  /** Defaults to the store's clock. */
+  readonly effectiveAt?: Date
+  readonly description: string
+  readonly lines: readonly NewJournalLine[]
+}
+
 /** A movement's signed effect on its account's balance: credits add, debits subtract. */
 export function signedAmount(movement: Pick<Movement, 'amount' | 'direction'>): Money {
   return movement.direction === 'credit' ? movement.amount : movement.amount.negate()

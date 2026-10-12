@@ -12,12 +12,16 @@ import type {
   ExceptionRecord,
   Expectation,
   ExpectationStatus,
+  JournalEntry,
+  LineRole,
   Memo,
   Movement,
   NewAllocation,
+  NewJournalEntry,
   NewMovement,
+  Side,
 } from '../model/index.js'
-import { ValidationError } from '../model/index.js'
+import { ValidationError, signedAmount } from '../model/index.js'
 import { Money, isSameCodeDifferentIssuer } from '../money/index.js'
 import type { Resolution } from './store.js'
 import { ConstraintError } from './store.js'
@@ -182,5 +186,68 @@ export function checkResolution(exception: ExceptionRecord, resolution: Resoluti
 export function checkCursorValue(value: string): void {
   if (typeof value !== 'string' || value === '') {
     throw new ValidationError('cursor', 'must be a non-empty string')
+  }
+}
+
+/** Roles whose lines are the movement's own balance: a wallet's cash, or an issuer's issued supply. */
+const BALANCE_ROLES: ReadonlySet<LineRole> = new Set(['cash', 'issued'])
+
+/** A line's amount as a debit-positive bigint. */
+const signed = (side: Side, raw: bigint): bigint => (side === 'debit' ? raw : -raw)
+
+/**
+ * Check a journal entry against the movement it accounts for and the
+ * movement's earlier entries. Throws `ConstraintError`.
+ *
+ * - every asset balances on its own (I3); totals across assets mean nothing
+ * - `postingNo` is exactly one past the movement's last entry, so two
+ *   concurrent posters cannot both append
+ * - lines are in the movement's asset
+ * - after this entry the movement's cash leg nets to zero or to exactly the
+ *   movement's signed amount, so the journal's cash can never drift from
+ *   the chain (I2)
+ */
+export function checkJournalEntry(
+  entry: NewJournalEntry,
+  movement: Movement | null,
+  existing: readonly JournalEntry[],
+): void {
+  const net = new Map<string, bigint>()
+  for (const line of entry.lines) {
+    const key = `${line.amount.asset}/${line.amount.decimals}`
+    net.set(key, (net.get(key) ?? 0n) + signed(line.side, line.amount.raw))
+  }
+  for (const [key, total] of net) {
+    if (total !== 0n) {
+      throw new ConstraintError('journal_unbalanced', `${key.split('/')[0]} is out by ${total} raw units`)
+    }
+  }
+  if (movement === null) return
+
+  const expected = existing.length + 1
+  if (entry.postingNo !== expected) {
+    throw new ConstraintError(
+      'journal_posting_conflict',
+      `movement ${movement.id} has ${existing.length} entries, so the next is posting ${expected}, not ${entry.postingNo}`,
+    )
+  }
+  for (const line of entry.lines) {
+    if (line.amount.asset !== movement.amount.asset || line.amount.decimals !== movement.amount.decimals) {
+      throw new ConstraintError(
+        'journal_asset',
+        `a line in ${line.amount.asset} cannot account for a movement in ${movement.amount.asset}`,
+      )
+    }
+  }
+  let cash = 0n
+  for (const line of [...existing.flatMap((e) => e.lines), ...entry.lines]) {
+    if (BALANCE_ROLES.has(line.role)) cash += signed(line.side, line.amount.raw)
+  }
+  const target = signedAmount(movement).raw
+  if (cash !== 0n && cash !== target) {
+    throw new ConstraintError(
+      'journal_cash_mismatch',
+      `movement ${movement.id}'s cash leg would net to ${cash}, but the movement is ${target}`,
+    )
   }
 }

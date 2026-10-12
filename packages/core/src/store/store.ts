@@ -177,6 +177,10 @@ export type ConstraintName =
   | 'expectation_not_open'
   | 'disposition_unsupported'
   | 'exception_not_open'
+  | 'journal_unbalanced'
+  | 'journal_posting_conflict'
+  | 'journal_cash_mismatch'
+  | 'journal_asset'
 
 export class StoreError extends Error {
   constructor(

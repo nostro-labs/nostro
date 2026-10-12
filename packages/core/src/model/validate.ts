@@ -12,9 +12,10 @@ import type {
   NewAllocation,
   NewException,
   NewExpectation,
+  NewJournalEntry,
   NewMovement,
 } from './types.js'
-import { EXCEPTION_CODES, MOVEMENT_KINDS } from './types.js'
+import { EXCEPTION_CODES, JOURNAL_ENTRY_KINDS, LINE_ROLES, MOVEMENT_KINDS } from './types.js'
 import type { Money } from '../money/index.js'
 
 export class ValidationError extends Error {
@@ -174,4 +175,41 @@ export function assertValidNewException(e: NewException): void {
   }
   if (e.account != null) account('account', e.account)
   text('detail', e.detail, 2_000)
+}
+
+export function assertValidNewJournalEntry(e: NewJournalEntry): void {
+  text('tenantId', e.tenantId)
+  if (!JOURNAL_ENTRY_KINDS.includes(e.kind)) {
+    throw new ValidationError('kind', `must be one of ${JOURNAL_ENTRY_KINDS.join(', ')}`)
+  }
+  text('description', e.description, 500)
+  if (e.effectiveAt !== undefined) date('effectiveAt', e.effectiveAt)
+  if (e.movementId != null) text('movementId', e.movementId)
+  if ((e.movementId == null) !== (e.postingNo == null)) {
+    throw new ValidationError('postingNo', 'is required with a movementId, and only then')
+  }
+  if (e.postingNo != null && (!Number.isSafeInteger(e.postingNo) || e.postingNo < 1)) {
+    throw new ValidationError('postingNo', 'must be a positive integer')
+  }
+  if (!Array.isArray(e.lines) || e.lines.length < 2) {
+    throw new ValidationError('lines', 'an entry needs at least two lines')
+  }
+  const decimals = new Map<string, number>()
+  e.lines.forEach((line, i) => {
+    text(`lines[${i}].account`, line.account)
+    if (!LINE_ROLES.includes(line.role)) {
+      throw new ValidationError(`lines[${i}].role`, `must be one of ${LINE_ROLES.join(', ')}`)
+    }
+    if (line.side !== 'debit' && line.side !== 'credit') {
+      throw new ValidationError(`lines[${i}].side`, 'must be "debit" or "credit"')
+    }
+    positive(`lines[${i}].amount`, line.amount)
+    const seen = decimals.get(line.amount.asset)
+    if (seen !== undefined && seen !== line.amount.decimals) {
+      throw new ValidationError(`lines[${i}].amount`, `${line.amount.asset} appears with ${seen} and ${line.amount.decimals} decimals`)
+    }
+    decimals.set(line.amount.asset, line.amount.decimals)
+    if (line.expectationId != null) text(`lines[${i}].expectationId`, line.expectationId)
+    if (line.exceptionId != null) text(`lines[${i}].exceptionId`, line.exceptionId)
+  })
 }
