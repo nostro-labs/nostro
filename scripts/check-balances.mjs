@@ -18,8 +18,12 @@
  *
  * This only holds for an account whose whole history Horizon still retains:
  * any testnet account (testnet is reset periodically), or a public-network
- * account younger than the retention window. An account that is transacting
- * while this runs can also drift by whatever landed after the last page.
+ * account younger than the retention window.
+ *
+ * The comparison uses a consistent snapshot: sync until caught up, read the
+ * Horizon balance, then sync again; if anything new arrived in between, do it
+ * again. Without that, an account that is still transacting drifts by
+ * whatever landed after the last page.
  *
  * Exits non-zero if any account does not match.
  */
@@ -84,12 +88,26 @@ for (const account of accounts) {
   const store = journal ? new SqliteStore({ filename: join(dir, 'check.db') }) : new MemoryStore()
   if (journal) await store.migrate()
   try {
-    for (const source of [new HorizonEffectsSource({ client, network }), new HorizonFeesSource({ client, network })]) {
-      for (;;) {
-        const report = await sync({ store, source, tenantId, accounts: [account], maxBatches: 20 })
-        if (report.errors.length > 0) throw report.errors[0].error
-        if (report.accounts[0].caughtUp) break
+    const sources = [new HorizonEffectsSource({ client, network }), new HorizonFeesSource({ client, network })]
+    /** Sync both feeds until caught up; returns how many movements were new. */
+    const catchUp = async () => {
+      let inserted = 0
+      for (const source of sources) {
+        for (;;) {
+          const report = await sync({ store, source, tenantId, accounts: [account], maxBatches: 20 })
+          if (report.errors.length > 0) throw report.errors[0].error
+          inserted += report.inserted
+          if (report.accounts[0].caughtUp) break
+        }
       }
+      return inserted
+    }
+    await catchUp()
+    let balances
+    for (let attempt = 1; ; attempt++) {
+      ;({ balances } = await client.get(`/accounts/${account}`))
+      if ((await catchUp()) === 0) break
+      if (attempt === 5) throw new Error(`${account} kept transacting; no consistent snapshot after 5 tries`)
     }
 
     const movements = await store.listMovements({ tenantId })
@@ -114,7 +132,6 @@ for (const account of accounts) {
       checks.push([again === 0, `rerun posted ${again} more`])
     }
 
-    const { balances } = await client.get(`/accounts/${account}`)
     const lines = []
     let ok = checks.every(([pass]) => pass)
     for (const b of balances) {
