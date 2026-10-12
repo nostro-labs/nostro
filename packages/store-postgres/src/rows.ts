@@ -4,7 +4,7 @@
  * node-postgres returns `numeric` and `bigint` as strings, which is what we
  * want: they become `bigint` here and never pass through `number`.
  */
-import type { Allocation, ExceptionRecord, Expectation, Json, Memo, Movement } from 'nostro'
+import type { Allocation, ExceptionRecord, Expectation, JournalEntry, JournalLine, Json, Memo, Movement } from 'nostro'
 import { Money, parseAsset } from 'nostro'
 
 export interface MovementRow {
@@ -189,5 +189,56 @@ export function toException(r: ExceptionRow): ExceptionRecord {
     openedAt: r.opened_at,
     resolvedAt: r.resolved_at,
     resolutionNote: r.resolution_note,
+  })
+}
+
+export interface JournalEntryRow {
+  id: string
+  seq: string
+  tenant_id: string
+  movement_id: string | null
+  posting_no: number | null
+  kind: JournalEntry['kind']
+  effective_at: Date
+  posted_at: Date
+  description: string
+}
+
+export interface JournalLineRow {
+  entry_id: string
+  line_no: number
+  account: string
+  role: JournalLine['role']
+  side: JournalLine['side']
+  asset: string
+  decimals: number
+  amount: string
+  expectation_id: string | null
+  exception_id: string | null
+}
+
+export function toJournalEntry(r: JournalEntryRow, lines: readonly JournalLineRow[]): JournalEntry {
+  return Object.freeze({
+    id: r.id,
+    tenantId: r.tenant_id,
+    seq: Number(r.seq),
+    movementId: r.movement_id,
+    postingNo: r.posting_no,
+    kind: r.kind,
+    effectiveAt: r.effective_at,
+    postedAt: r.posted_at,
+    description: r.description,
+    lines: Object.freeze(
+      lines.map((l) =>
+        Object.freeze({
+          account: l.account,
+          role: l.role,
+          side: l.side,
+          amount: money(l.amount, l.asset, l.decimals),
+          expectationId: l.expectation_id,
+          exceptionId: l.exception_id,
+        }),
+      ),
+    ),
   })
 }

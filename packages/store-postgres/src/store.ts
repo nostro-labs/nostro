@@ -25,12 +25,17 @@ import type {
   Expectation,
   ExpectationQuery,
   InsertMovementsResult,
+  JournalEntry,
+  JournalQuery,
+  JournalReader,
+  JournalTx,
   Movement,
   MovementConflict,
   MovementQuery,
   NewAllocation,
   NewException,
   NewExpectation,
+  NewJournalEntry,
   NewMovement,
   Resolution,
   Store,
@@ -44,16 +49,25 @@ import {
   assertValidNewAllocation,
   assertValidNewException,
   assertValidNewExpectation,
+  assertValidNewJournalEntry,
   assertValidNewMovement,
   checkAllocation,
   checkCancel,
   checkCursorValue,
   checkDisposition,
+  checkJournalEntry,
   checkResolution,
   sameFacts,
 } from 'nostro'
-import type { AllocationRow, ExceptionRow, ExpectationRow, MovementRow } from './rows.js'
-import { memoColumns, toAllocation, toException, toExpectation, toMovement } from './rows.js'
+import type {
+  AllocationRow,
+  ExceptionRow,
+  ExpectationRow,
+  JournalEntryRow,
+  JournalLineRow,
+  MovementRow,
+} from './rows.js'
+import { memoColumns, toAllocation, toException, toExpectation, toJournalEntry, toMovement } from './rows.js'
 import { MIGRATIONS, quoteSchema } from './schema.js'
 
 export interface PostgresStoreOptions {
@@ -95,7 +109,7 @@ class Where {
   }
 }
 
-class PgReader implements StoreReader {
+class PgReader implements StoreReader, JournalReader {
   constructor(
     protected readonly s: string,
     protected readonly run: Run,
@@ -176,6 +190,27 @@ class PgReader implements StoreReader {
     return (await this.run<ExceptionRow>(sql, w.params)).map(toException)
   }
 
+  async listJournalEntries(q: JournalQuery): Promise<JournalEntry[]> {
+    const w = new Where()
+      .add((p) => `tenant_id = ${p}`, q.tenantId)
+      .add((p) => `movement_id = ${p}`, q.movementId)
+      .add((p) => `seq > ${p}`, q.afterSeq)
+      .add((p) => `effective_at >= ${p}`, q.effectiveFrom)
+      .add((p) => `effective_at < ${p}`, q.effectiveBefore)
+    const entries = await this.run<JournalEntryRow>(
+      `SELECT * FROM ${this.s}.journal_entries${w} ORDER BY seq${w.limit(q.limit)}`,
+      w.params,
+    )
+    if (entries.length === 0) return []
+    const lines = await this.run<JournalLineRow>(
+      `SELECT * FROM ${this.s}.journal_lines WHERE entry_id = ANY($1) ORDER BY entry_id, line_no`,
+      [entries.map((e) => e.id)],
+    )
+    const byEntry = new Map<string, JournalLineRow[]>()
+    for (const l of lines) byEntry.set(l.entry_id, [...(byEntry.get(l.entry_id) ?? []), l])
+    return entries.map((e) => toJournalEntry(e, byEntry.get(e.id) ?? []))
+  }
+
   async getCursor(k: CursorKey): Promise<string | null> {
     const [row] = await this.run<{ value: string | null }>(
       `SELECT value FROM ${this.s}.cursors WHERE tenant_id = $1 AND network = $2 AND source = $3 AND account = $4`,
@@ -190,7 +225,7 @@ const isUniqueViolation = (err: unknown, constraint: string): boolean =>
   (err as { code?: string }).code === '23505' &&
   (err as { constraint?: string }).constraint === constraint
 
-class PgTx extends PgReader implements StoreTx {
+class PgTx extends PgReader implements StoreTx, JournalTx {
   private open = true
   private savepoints = 0
 
@@ -436,6 +471,53 @@ class PgTx extends PgReader implements StoreTx {
     return toAllocation(row!)
   }
 
+  async postJournalEntry(n: NewJournalEntry): Promise<JournalEntry> {
+    assertValidNewJournalEntry(n)
+    // Locking the movement serialises posters, so the posting-number check
+    // below sees every entry committed before it.
+    const movement = n.movementId == null ? null : await this.lockMovement(n.tenantId, n.movementId)
+    const existing = movement === null ? [] : await this.listJournalEntries({ tenantId: n.tenantId, movementId: movement.id })
+    checkJournalEntry(n, movement, existing)
+    for (const line of n.lines) {
+      if (line.expectationId != null && (await this.getExpectation(n.tenantId, line.expectationId)) === null) {
+        throw new NotFoundError('expectation', line.expectationId)
+      }
+      if (line.exceptionId != null && (await this.getException(n.tenantId, line.exceptionId)) === null) {
+        throw new NotFoundError('exception', line.exceptionId)
+      }
+    }
+    const now = this.now()
+    const [entry] = await this.run<JournalEntryRow>(
+      `INSERT INTO ${this.s}.journal_entries (
+         id, tenant_id, movement_id, posting_no, kind, effective_at, posted_at, description
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [this.ids(), n.tenantId, movement?.id ?? null, n.postingNo ?? null, n.kind, n.effectiveAt ?? now, now, n.description],
+    )
+    const lines: JournalLineRow[] = []
+    for (const [i, l] of n.lines.entries()) {
+      const [row] = await this.run<JournalLineRow>(
+        `INSERT INTO ${this.s}.journal_lines (
+           entry_id, line_no, tenant_id, account, role, side, asset, decimals, amount, expectation_id, exception_id
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+        [
+          entry!.id,
+          i + 1,
+          n.tenantId,
+          l.account,
+          l.role,
+          l.side,
+          l.amount.asset,
+          l.amount.decimals,
+          l.amount.raw.toString(),
+          l.expectationId ?? null,
+          l.exceptionId ?? null,
+        ],
+      )
+      lines.push(row!)
+    }
+    return toJournalEntry(entry!, lines)
+  }
+
   async openException(n: NewException): Promise<ExceptionRecord> {
     assertValidNewException(n)
     if (n.movementId != null && (await this.getMovement(n.tenantId, n.movementId)) === null) {
@@ -483,7 +565,7 @@ class PgTx extends PgReader implements StoreTx {
   }
 }
 
-export class PostgresStore extends PgReader implements Store {
+export class PostgresStore extends PgReader implements Store, JournalReader {
   private readonly pool: Pool
   private readonly ownsPool: boolean
   private readonly schema: string
@@ -538,7 +620,7 @@ export class PostgresStore extends PgReader implements Store {
     }
   }
 
-  async transaction<T>(fn: (tx: StoreTx) => Promise<T>): Promise<T> {
+  async transaction<T>(fn: (tx: StoreTx & JournalTx) => Promise<T>): Promise<T> {
     const client = await this.pool.connect()
     const tx = new PgTx(this.s, client, this.ids, this.now)
     let broken: Error | undefined

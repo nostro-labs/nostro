@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto'
 import pg from 'pg'
 import { afterAll, describe, expect, it } from 'vitest'
 import { Money, NATIVE } from 'nostro'
-import { describeStoreConformance } from 'nostro-testkit'
+import { describeJournalConformance, describeStoreConformance } from 'nostro-testkit'
 import { PostgresStore } from '../src/index.js'
 
 const url = process.env.NOSTRO_TEST_DATABASE_URL
@@ -40,6 +40,7 @@ if (pool === undefined) {
   })
 } else {
   describeStoreConformance('PostgresStore', () => freshStore())
+  describeJournalConformance('PostgresStore', () => freshStore())
 
   describe('PostgresStore', () => {
     it('migrates idempotently, even when several processes migrate at once', async () => {
@@ -47,7 +48,7 @@ if (pool === undefined) {
       await Promise.all([1, 2, 3].map(() => freshStore({ schema })))
       await freshStore({ schema })
       const { rows } = await pool.query(`SELECT version FROM "${schema}".migrations ORDER BY version`)
-      expect(rows.map((r) => r.version)).toEqual([1])
+      expect(rows.map((r) => r.version)).toEqual([1, 2])
     })
 
     it('keeps amounts exact beyond 64 bits', async () => {
@@ -94,6 +95,109 @@ if (pool === undefined) {
       await first
       expect(await second).toMatchObject({ name: 'ConstraintError', constraint: 'expectation_reference_unique' })
       expect(await store.getCursor({ tenantId: 't', network: 'n', source: 's', account: 'a' })).toBe('still-usable')
+    })
+
+    describe('journal, enforced by the database itself', () => {
+      /** A store with one movement, and the schema it lives in. */
+      async function withMovement() {
+        const store = await freshStore()
+        const s = `"${schemas[schemas.length - 1]!}"`
+        const { inserted } = await store.transaction((tx) =>
+          tx.insertMovements([
+            {
+              tenantId: 't',
+              network: 'testnet',
+              source: 'horizon',
+              externalId: 'e1',
+              account: `G${'A'.repeat(55)}`,
+              direction: 'credit',
+              kind: 'transfer',
+              amount: Money.parse('10', NATIVE),
+              ledger: 1,
+              occurredAt: new Date('2026-10-05T00:00:00Z'),
+            },
+          ]),
+        )
+        return { store, s, movement: inserted[0]! }
+      }
+      const rawEntry = async (client: pg.PoolClient, s: string, lines: [string, string][]) => {
+        await client.query(
+          `INSERT INTO ${s}.journal_entries (id, tenant_id, kind, effective_at, posted_at, description)
+           VALUES ('raw', 't', 'reclass', now(), now(), 'raw')`,
+        )
+        for (const [i, [side, amount]] of lines.entries()) {
+          await client.query(
+            `INSERT INTO ${s}.journal_lines (entry_id, line_no, tenant_id, account, role, side, asset, decimals, amount)
+             VALUES ('raw', $1, 't', 'x', 'unapplied', $2, 'native', 7, $3)`,
+            [i + 1, side, amount],
+          )
+        }
+      }
+
+      it('refuses an unbalanced entry at COMMIT, even written with raw SQL', async () => {
+        const { s } = await withMovement()
+        const client = await pool.connect()
+        try {
+          await client.query('BEGIN')
+          await rawEntry(client, s, [
+            ['debit', '10'],
+            ['credit', '9'],
+          ])
+          await expect(client.query('COMMIT')).rejects.toThrow(/does not balance/)
+        } finally {
+          client.release()
+        }
+        const one = await pool.connect()
+        try {
+          await one.query('BEGIN')
+          await rawEntry(one, s, [['debit', '10']])
+          await expect(one.query('COMMIT')).rejects.toThrow(/fewer than two lines/)
+        } finally {
+          one.release()
+        }
+        const { rows } = await pool.query(`SELECT count(*)::int AS n FROM ${s}.journal_entries`)
+        expect(rows[0].n).toBe(0)
+      })
+
+      it('refuses to edit, delete or truncate posted entries', async () => {
+        const { store, s, movement } = await withMovement()
+        await store.transaction((tx) =>
+          tx.postJournalEntry({
+            tenantId: 't',
+            movementId: movement.id,
+            postingNo: 1,
+            kind: 'initial',
+            description: 'Received 10 XLM',
+            lines: [
+              { account: 'cash', role: 'cash', side: 'debit', amount: movement.amount },
+              { account: 'unapplied', role: 'unapplied', side: 'credit', amount: movement.amount },
+            ],
+          }),
+        )
+        for (const sql of [
+          `UPDATE ${s}.journal_entries SET description = 'edited'`,
+          `DELETE FROM ${s}.journal_entries`,
+          `UPDATE ${s}.journal_lines SET amount = 1`,
+          `DELETE FROM ${s}.journal_lines`,
+          `TRUNCATE ${s}.journal_lines, ${s}.journal_entries`,
+        ]) {
+          await expect(pool.query(sql)).rejects.toThrow(/append-only/)
+        }
+        expect(await store.listJournalEntries({ tenantId: 't' })).toHaveLength(1)
+      })
+
+      it('upgrades a version 1 database with data to version 2', async () => {
+        const { store, s, movement } = await withMovement()
+        // Put the schema back to version 1, keeping its data.
+        await pool.query(`DROP TABLE ${s}.journal_lines, ${s}.journal_entries`)
+        await pool.query(
+          `DROP FUNCTION ${s}.journal_entry_balanced, ${s}.journal_line_balanced, ${s}.journal_check_entry, ${s}.journal_append_only`,
+        )
+        await pool.query(`DELETE FROM ${s}.migrations WHERE version = 2`)
+        await store.migrate()
+        expect((await store.getMovement('t', movement.id))!.amount.toString()).toBe('10.0000000')
+        expect(await store.listJournalEntries({ tenantId: 't' })).toEqual([])
+      })
     })
 
     it('rejects a schema name that is not a plain identifier', () => {

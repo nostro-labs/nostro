@@ -27,6 +27,19 @@ const DISPOSITIONS = list(['pending', 'allocated', 'partial', 'exception', 'igno
 const MEMO_TYPES = list(['text', 'id', 'hash', 'return'])
 const EXPECTATION_STATUSES = list(['open', 'partially_paid', 'settled', 'cancelled'])
 const EXCEPTION_STATUSES = list(['open', 'resolved', 'dismissed'])
+const LINE_ROLES = list([
+  'cash',
+  'issued',
+  'receivable',
+  'payable',
+  'unapplied',
+  'customer_credit',
+  'unexplained',
+  'network_fees',
+  'uncategorized_income',
+  'uncategorized_expense',
+])
+const ENTRY_KINDS = list(['initial', 'reclass', 'correction'])
 const EXCEPTION_CODES = list([
   'UNMATCHED_NO_CANDIDATE',
   'AMBIGUOUS_MATCH',
@@ -160,5 +173,73 @@ export const MIGRATIONS: readonly ((s: string) => string)[] = [
       value     text,
       PRIMARY KEY (tenant_id, network, source, account)
     );
+  `,
+  // 2: the journal. Append-only, and every entry balances per asset: the
+  // database checks that at COMMIT, independently of application code.
+  (s) => `
+    CREATE TABLE ${s}.journal_entries (
+      id           text PRIMARY KEY,
+      seq          bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
+      tenant_id    text NOT NULL,
+      movement_id  text REFERENCES ${s}.movements (id),
+      posting_no   integer CHECK (posting_no >= 1),
+      kind         text NOT NULL CHECK (kind IN (${ENTRY_KINDS})),
+      effective_at timestamptz NOT NULL,
+      posted_at    timestamptz NOT NULL,
+      description  text NOT NULL,
+      CHECK ((movement_id IS NULL) = (posting_no IS NULL)),
+      CONSTRAINT journal_posting_unique UNIQUE (movement_id, posting_no)
+    );
+    -- What accounting periods will filter and lock on.
+    CREATE INDEX journal_entries_effective ON ${s}.journal_entries (tenant_id, effective_at);
+
+    CREATE TABLE ${s}.journal_lines (
+      entry_id       text NOT NULL REFERENCES ${s}.journal_entries (id),
+      line_no        smallint NOT NULL CHECK (line_no >= 1),
+      tenant_id      text NOT NULL,
+      account        text NOT NULL,
+      role           text NOT NULL CHECK (role IN (${LINE_ROLES})),
+      side           text NOT NULL CHECK (side IN ('debit', 'credit')),
+      asset          text NOT NULL,
+      decimals       smallint NOT NULL CHECK (decimals BETWEEN 0 AND 38),
+      amount         numeric(40, 0) NOT NULL CHECK (amount > 0),
+      expectation_id text REFERENCES ${s}.expectations (id),
+      exception_id   text REFERENCES ${s}.exceptions (id),
+      PRIMARY KEY (entry_id, line_no)
+    );
+    CREATE INDEX journal_lines_account ON ${s}.journal_lines (tenant_id, account, asset);
+
+    CREATE FUNCTION ${s}.journal_check_entry(entry text) RETURNS void LANGUAGE plpgsql AS $$
+    BEGIN
+      IF (SELECT count(*) FROM ${s}.journal_lines WHERE entry_id = entry) < 2 THEN
+        RAISE EXCEPTION 'journal entry % has fewer than two lines', entry USING ERRCODE = 'check_violation';
+      END IF;
+      IF EXISTS (
+        SELECT 1 FROM ${s}.journal_lines WHERE entry_id = entry
+        GROUP BY asset, decimals
+        HAVING sum(CASE side WHEN 'debit' THEN amount ELSE -amount END) <> 0
+      ) THEN
+        RAISE EXCEPTION 'journal entry % does not balance', entry USING ERRCODE = 'check_violation';
+      END IF;
+    END $$;
+    CREATE FUNCTION ${s}.journal_entry_balanced() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN PERFORM ${s}.journal_check_entry(NEW.id); RETURN NULL; END $$;
+    CREATE FUNCTION ${s}.journal_line_balanced() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN PERFORM ${s}.journal_check_entry(NEW.entry_id); RETURN NULL; END $$;
+    CREATE CONSTRAINT TRIGGER journal_entries_balanced AFTER INSERT ON ${s}.journal_entries
+      DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION ${s}.journal_entry_balanced();
+    CREATE CONSTRAINT TRIGGER journal_lines_balanced AFTER INSERT ON ${s}.journal_lines
+      DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION ${s}.journal_line_balanced();
+
+    CREATE FUNCTION ${s}.journal_append_only() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN RAISE EXCEPTION 'the journal is append-only' USING ERRCODE = 'check_violation'; END $$;
+    CREATE TRIGGER journal_entries_append_only BEFORE UPDATE OR DELETE ON ${s}.journal_entries
+      FOR EACH ROW EXECUTE FUNCTION ${s}.journal_append_only();
+    CREATE TRIGGER journal_lines_append_only BEFORE UPDATE OR DELETE ON ${s}.journal_lines
+      FOR EACH ROW EXECUTE FUNCTION ${s}.journal_append_only();
+    CREATE TRIGGER journal_entries_no_truncate BEFORE TRUNCATE ON ${s}.journal_entries
+      FOR EACH STATEMENT EXECUTE FUNCTION ${s}.journal_append_only();
+    CREATE TRIGGER journal_lines_no_truncate BEFORE TRUNCATE ON ${s}.journal_lines
+      FOR EACH STATEMENT EXECUTE FUNCTION ${s}.journal_append_only();
   `,
 ]
