@@ -21,10 +21,12 @@ import type {
   ExceptionStatus,
   Expectation,
   ExpectationStatus,
+  JournalEntry,
   Movement,
   NewAllocation,
   NewException,
   NewExpectation,
+  NewJournalEntry,
   NewMovement,
 } from '../model/index.js'
 import type { AssetId } from '../money/index.js'
@@ -153,6 +155,35 @@ export interface StoreTx extends StoreReader {
 
   openException(exception: NewException): Promise<ExceptionRecord>
   resolveException(tenantId: string, id: string, resolution: Resolution): Promise<ExceptionRecord>
+}
+
+export interface JournalQuery {
+  readonly tenantId: string
+  readonly movementId?: string
+  /** Entries with `seq` greater than this, for paging in posting order. */
+  readonly afterSeq?: number
+  /** Effective on or after this instant. */
+  readonly effectiveFrom?: Date
+  /** Effective strictly before this instant. */
+  readonly effectiveBefore?: Date
+  readonly limit?: number
+}
+
+/** Read access to the journal. Entries come back in posting (`seq`) order. */
+export interface JournalReader {
+  listJournalEntries(query: JournalQuery): Promise<JournalEntry[]>
+}
+
+/** Posting to the journal, inside a transaction. */
+export interface JournalTx extends JournalReader {
+  /**
+   * Append a balanced entry. Entries are never edited or deleted. For an
+   * entry tied to a movement, the store locks the movement, then applies
+   * `checkJournalEntry` against the movement's earlier entries, so two
+   * concurrent posters cannot both append the same posting number.
+   * Expectations and exceptions named on lines must exist in the tenant.
+   */
+  postJournalEntry(entry: NewJournalEntry): Promise<JournalEntry>
 }
 
 export interface Store extends StoreReader {

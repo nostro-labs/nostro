@@ -21,13 +21,16 @@ import type {
   Disposition,
   ExceptionRecord,
   Expectation,
+  JournalEntry,
   Movement,
   NewAllocation,
   NewException,
   NewExpectation,
+  NewJournalEntry,
   NewMovement,
 } from '../model/index.js'
 import {
+  assertValidNewJournalEntry,
   assertValidNewAllocation,
   assertValidNewException,
   assertValidNewExpectation,
@@ -38,6 +41,9 @@ import type {
   ExceptionQuery,
   ExpectationQuery,
   InsertMovementsResult,
+  JournalQuery,
+  JournalReader,
+  JournalTx,
   MovementConflict,
   MovementQuery,
   Resolution,
@@ -50,6 +56,7 @@ import {
   checkCancel,
   checkCursorValue,
   checkDisposition,
+  checkJournalEntry,
   checkResolution,
   sameFacts,
 } from './rules.js'
@@ -73,6 +80,10 @@ interface State {
   readonly allocations: Map<string, Allocation>
   readonly exceptions: Map<string, ExceptionRecord>
   readonly cursors: Map<string, string>
+  journalSeq: number
+  readonly journal: Map<string, JournalEntry>
+  /** Movement id → its entry ids in posting order. Arrays are replaced, never pushed to. */
+  readonly journalByMovement: Map<string, readonly string[]>
 }
 
 function emptyState(): State {
@@ -85,6 +96,9 @@ function emptyState(): State {
     allocations: new Map(),
     exceptions: new Map(),
     cursors: new Map(),
+    journalSeq: 0,
+    journal: new Map(),
+    journalByMovement: new Map(),
   }
 }
 
@@ -99,6 +113,9 @@ function cloneState(s: State): State {
     allocations: new Map(s.allocations),
     exceptions: new Map(s.exceptions),
     cursors: new Map(s.cursors),
+    journalSeq: s.journalSeq,
+    journal: new Map(s.journal),
+    journalByMovement: new Map(s.journalByMovement),
   }
 }
 
@@ -108,7 +125,7 @@ const movementKey = (m: { tenantId: string; network: string; source: string; ext
 const cursorKey = (k: CursorKey) => key(k.tenantId, k.network, k.source, k.account)
 const copyDate = (d: Date): Date => new Date(d.getTime())
 
-abstract class MemoryReader implements StoreReader {
+abstract class MemoryReader implements StoreReader, JournalReader {
   /** The state reads run against: committed state, or a transaction's draft. */
   protected abstract snapshot(): State
 
@@ -195,13 +212,31 @@ abstract class MemoryReader implements StoreReader {
     return out
   }
 
+  async listJournalEntries(q: JournalQuery): Promise<JournalEntry[]> {
+    this.check()
+    const state = this.snapshot()
+    const ids =
+      q.movementId === undefined ? [...state.journal.keys()] : (state.journalByMovement.get(q.movementId) ?? [])
+    const out: JournalEntry[] = []
+    for (const id of ids) {
+      const e = state.journal.get(id)!
+      if (e.tenantId !== q.tenantId) continue
+      if (q.afterSeq !== undefined && e.seq <= q.afterSeq) continue
+      if (q.effectiveFrom !== undefined && e.effectiveAt.getTime() < q.effectiveFrom.getTime()) continue
+      if (q.effectiveBefore !== undefined && e.effectiveAt.getTime() >= q.effectiveBefore.getTime()) continue
+      out.push(e)
+    }
+    out.sort((a, b) => a.seq - b.seq)
+    return q.limit === undefined ? out : out.slice(0, q.limit)
+  }
+
   async getCursor(k: CursorKey): Promise<string | null> {
     this.check()
     return this.snapshot().cursors.get(cursorKey(k)) ?? null
   }
 }
 
-class MemoryTx extends MemoryReader implements StoreTx {
+class MemoryTx extends MemoryReader implements StoreTx, JournalTx {
   private open = true
 
   constructor(
@@ -406,6 +441,50 @@ class MemoryTx extends MemoryReader implements StoreTx {
     return allocation
   }
 
+  async postJournalEntry(n: NewJournalEntry): Promise<JournalEntry> {
+    this.check()
+    assertValidNewJournalEntry(n)
+    const movement = n.movementId == null ? null : this.movement(n.tenantId, n.movementId)
+    const existing = movement === null ? [] : await this.listJournalEntries({ tenantId: n.tenantId, movementId: movement.id })
+    checkJournalEntry(n, movement, existing)
+    for (const line of n.lines) {
+      if (line.expectationId != null) this.expectation(n.tenantId, line.expectationId)
+      if (line.exceptionId != null) {
+        const x = this.draft.exceptions.get(line.exceptionId)
+        if (x === undefined || x.tenantId !== n.tenantId) throw new NotFoundError('exception', line.exceptionId)
+      }
+    }
+    const now = this.now()
+    const entry: JournalEntry = Object.freeze({
+      id: this.ids(),
+      tenantId: n.tenantId,
+      seq: ++this.draft.journalSeq,
+      movementId: movement?.id ?? null,
+      postingNo: n.postingNo ?? null,
+      kind: n.kind,
+      effectiveAt: copyDate(n.effectiveAt ?? now),
+      postedAt: now,
+      description: n.description,
+      lines: Object.freeze(
+        n.lines.map((l) =>
+          Object.freeze({
+            account: l.account,
+            role: l.role,
+            side: l.side,
+            amount: l.amount,
+            expectationId: l.expectationId ?? null,
+            exceptionId: l.exceptionId ?? null,
+          }),
+        ),
+      ),
+    })
+    this.draft.journal.set(entry.id, entry)
+    if (movement !== null) {
+      this.draft.journalByMovement.set(movement.id, [...(this.draft.journalByMovement.get(movement.id) ?? []), entry.id])
+    }
+    return entry
+  }
+
   async openException(n: NewException): Promise<ExceptionRecord> {
     this.check()
     assertValidNewException(n)
@@ -446,7 +525,7 @@ class MemoryTx extends MemoryReader implements StoreTx {
   }
 }
 
-export class MemoryStore extends MemoryReader implements Store {
+export class MemoryStore extends MemoryReader implements Store, JournalReader {
   private committed: State = emptyState()
   private tail: Promise<unknown> = Promise.resolve()
   private readonly ids: () => string
@@ -462,7 +541,7 @@ export class MemoryStore extends MemoryReader implements Store {
     return this.committed
   }
 
-  transaction<T>(fn: (tx: StoreTx) => Promise<T>): Promise<T> {
+  transaction<T>(fn: (tx: StoreTx & JournalTx) => Promise<T>): Promise<T> {
     const run = this.tail.then(async () => {
       const tx = new MemoryTx(cloneState(this.committed), this.ids, this.now)
       try {
