@@ -1,7 +1,12 @@
+import { readFileSync, readdirSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import type {
   Allocation,
   ExceptionRecord,
+  HorizonEffect,
+  HorizonOperation,
+  HorizonTransaction,
   JournalEntry,
   JournalLine,
   Movement,
@@ -9,7 +14,18 @@ import type {
   Store,
   StoreTx,
 } from '../src/index.js'
-import { MemoryStore, Money, NATIVE, asset, checkMovement, doctor, postJournal, reconcile } from '../src/index.js'
+import {
+  MemoryStore,
+  Money,
+  NATIVE,
+  asset,
+  checkMovement,
+  doctor,
+  normalizeEffects,
+  normalizeFee,
+  postJournal,
+  reconcile,
+} from '../src/index.js'
 
 const T = 'acme'
 const ACCOUNT = `G${'A'.repeat(55)}`
@@ -353,5 +369,55 @@ describe('doctor', () => {
       ['journal_unbalanced', false],
       ['journal_unbalanced', true],
     ])
+  })
+})
+
+describe('doctor over every captured Horizon fixture', () => {
+  it('finds nothing wrong once every participant has been ingested, reconciled and posted', async () => {
+    const dir = new URL('../../../fixtures/horizon/pubnet/', import.meta.url)
+    const ctx = (account: string, source: string) => ({ tenantId: T, network: 'public', source, account })
+    const facts: NewMovement[] = []
+    for (const name of readdirSync(fileURLToPath(dir)).filter((f) => f.endsWith('.json'))) {
+      const f = JSON.parse(readFileSync(fileURLToPath(new URL(name, dir)), 'utf8')) as {
+        operation?: HorizonOperation
+        effects?: HorizonEffect[]
+        transactions?: Record<string, HorizonTransaction>
+      }
+      if (f.operation !== undefined && f.effects !== undefined) {
+        const ops = new Map([[f.operation.id, f.operation]])
+        for (const account of new Set(f.effects.map((e) => e.account))) {
+          facts.push(...normalizeEffects(f.effects, ops, ctx(account, 'horizon')))
+        }
+      }
+      for (const tx of Object.values(f.transactions ?? {})) {
+        const fee = normalizeFee(tx, ctx(tx.fee_account, 'horizon-fees'))
+        if (fee !== null) facts.push(fee)
+      }
+    }
+    expect(facts.length).toBeGreaterThan(30)
+
+    const store = new MemoryStore()
+    await store.transaction(async (tx) => {
+      await tx.insertMovements(facts)
+      // Give the muxed payment something to settle, so allocation is covered too.
+      const muxed = facts.find((m) => m.muxedId != null && m.direction === 'credit')!
+      await tx.insertExpectation({
+        tenantId: T,
+        reference: 'MUXED',
+        account: muxed.account,
+        amount: muxed.amount,
+        muxedId: muxed.muxedId!,
+      })
+    })
+    expect((await reconcile({ store, tenantId: T, limit: 1000 })).errors).toEqual([])
+    expect((await postJournal({ store, tenantId: T })).errors).toEqual([])
+
+    const report = await doctor({ store, tenantId: T })
+    expect(report.findings).toEqual([])
+    expect(report.movements.total).toBe(facts.length)
+    expect(report.movements.byDisposition.pending).toBe(0)
+    expect(report.movements.byDisposition.allocated).toBe(1)
+    expect(report.journal.entries).toBe(facts.length)
+    expect(report.journal.totals.every((t) => t.debits.equals(t.credits))).toBe(true)
   })
 })

@@ -10,9 +10,9 @@
 > `Store` contract with in-memory, SQLite (`nostro-store-sqlite`) and PostgreSQL
 > (`nostro-store-postgres`) stores that pass one shared conformance suite, and Horizon ingestion
 > (effects and fees) through a bounded `sync()` loop, matching through `reconcile()`, and a
-> double-entry journal posted as movements are decided, with CSV export. Balance invariants and the
-> CLI are in progress — see [Roadmap](#roadmap). Nothing here is production-ready yet, and this README
-> marks what exists versus what doesn't.
+> double-entry journal posted as movements are decided, with CSV export, and `doctor()`, which checks
+> all three invariants. The CLI and server are in progress — see [Roadmap](#roadmap). Nothing here is
+> production-ready yet, and this README marks what exists versus what doesn't.
 
 ## The problem
 
@@ -93,6 +93,22 @@ an amount alone is only ever a suggestion. Overpayments, duplicates, lookalike a
 payments are refused into an exceptions queue with the evidence for each decision. How decisions are
 made, and what is not handled yet: [docs/matching.md](./docs/matching.md).
 
+## Checking the books (works today)
+
+```ts
+import { doctor } from 'nostro'
+
+const report = await doctor({ store, tenantId: 'acme' })
+if (!report.ok) console.table(report.findings) // e.g. I1 disposition_unsupported on movement 3f2c…
+```
+
+`doctor()` checks every movement's disposition and every journal entry. Given `attest` (a Horizon
+balance source, the movement sources and the accounts), it also compares each account's recorded
+movements with its on-chain balance in every asset, as of the ledger that balance last changed in,
+so an account that keeps transacting can still be checked exactly
+([ADR 0008](./docs/adr/0008-balance-attestation-at-a-ledger.md)). Each finding and what to do about
+it: [docs/invariants.md](./docs/invariants.md).
+
 ## What it does
 
 ```
@@ -106,7 +122,8 @@ one-wire-covers-six-invoices are all the same mechanism rather than six special 
 
 ## The invariant
 
-The headline guarantee, checked in CI against every fixture and by `nostro doctor` at runtime:
+The headline guarantee, checked in CI against every captured Horizon fixture, and at runtime by
+`doctor()`:
 
 > **I1 — total disposition.** Every movement is either fully allocated, partially allocated with an
 > open exception covering the residual, carries at least one exception, or is explicitly ignored with
@@ -114,8 +131,9 @@ The headline guarantee, checked in CI against every fixture and by `nostro docto
 
 Two more back it: **I2** cross-checks accumulated movements against the account's real on-chain
 balance (this is what catches a source that quietly omitted events), and **I3** requires every
-journal entry to balance per asset, `Σdebits = Σcredits`: every store checks it before writing, and
-PostgreSQL checks it again itself at COMMIT. See [docs/journal.md](./docs/journal.md).
+journal entry to balance per asset, `Σdebits = Σcredits`: every store checks it before writing,
+PostgreSQL checks it again itself at COMMIT, and `doctor()` re-checks what is stored. See
+[docs/invariants.md](./docs/invariants.md) and [docs/journal.md](./docs/journal.md).
 
 ## Non-goals
 
