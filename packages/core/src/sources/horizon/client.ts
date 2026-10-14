@@ -10,6 +10,11 @@
  * wait longer than `maxRetryAfterMs` fails the call instead: `sync()` is
  * meant to be bounded, and sleeping for an hour inside a Lambda or a route
  * handler is worse than reporting the rate limit and resuming next run.
+ *
+ * A response about current state, such as an account and its balances, says
+ * which ledger that state is as of (the `Latest-Ledger` header);
+ * `resource()` returns it. History feeds (effects, transactions) do not send
+ * it.
  */
 
 export interface HorizonClientOptions {
@@ -38,6 +43,12 @@ export interface Page<T> {
   readonly lastCursor: string | null
 }
 
+/** A single resource, and the ledger its state is as of, when the server says. */
+export interface Resource<T> {
+  readonly body: T
+  readonly latestLedger: number | null
+}
+
 export type QueryValue = string | number | boolean | undefined
 
 /** A Horizon `application/problem+json` error, or a transport failure. */
@@ -60,6 +71,13 @@ export class HorizonError extends Error {
 }
 
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504])
+
+/** Parse `Latest-Ledger`: a positive ledger sequence, or `null`. */
+export function parseLatestLedger(value: string | null): number | null {
+  if (value === null || !/^\d{1,10}$/.test(value.trim())) return null
+  const ledger = Number(value.trim())
+  return ledger > 0 && ledger <= 0xffffffff ? ledger : null
+}
 
 /** Parse `Retry-After` as delta-seconds or an HTTP date. */
 export function parseRetryAfter(value: string | null, now: number = Date.now()): number | null {
@@ -104,7 +122,13 @@ export class HorizonClient {
 
   /** GET a single resource. */
   async get<T>(path: string, query: Readonly<Record<string, QueryValue>> = {}): Promise<T> {
-    return (await this.request(this.url(path, query))) as T
+    return (await this.request(this.url(path, query))).body as T
+  }
+
+  /** GET a single resource, and the ledger its state is as of, when the server says. */
+  async resource<T>(path: string, query: Readonly<Record<string, QueryValue>> = {}): Promise<Resource<T>> {
+    const { body, latestLedger } = await this.request(this.url(path, query))
+    return { body: body as T, latestLedger }
   }
 
   /** GET one page of a collection. */
@@ -112,7 +136,7 @@ export class HorizonClient {
     path: string,
     query: Readonly<Record<string, QueryValue>> = {},
   ): Promise<Page<T>> {
-    const body = (await this.request(this.url(path, query))) as {
+    const body = (await this.request(this.url(path, query))).body as {
       _embedded?: { records?: T[] }
     }
     const records = body._embedded?.records
@@ -123,7 +147,7 @@ export class HorizonClient {
     return { records, lastCursor: last === undefined ? null : last.paging_token }
   }
 
-  private async request(url: string): Promise<unknown> {
+  private async request(url: string): Promise<Resource<unknown>> {
     for (let attempt = 0; ; attempt++) {
       let error: HorizonError
       try {
@@ -139,7 +163,7 @@ export class HorizonClient {
     }
   }
 
-  private async attempt(url: string): Promise<unknown> {
+  private async attempt(url: string): Promise<Resource<unknown>> {
     const controller = new AbortController()
     // The timeout spans the body read too: a server that sends headers and
     // then stalls must not hang the sync.
@@ -167,7 +191,7 @@ export class HorizonClient {
     }
   }
 
-  private interpret(url: string, response: Response, text: string): unknown {
+  private interpret(url: string, response: Response, text: string): Resource<unknown> {
     let body: unknown
     try {
       body = JSON.parse(text)
@@ -178,7 +202,7 @@ export class HorizonClient {
       if (body === null) {
         throw new HorizonError(`GET ${url} returned a non-JSON body`, response.status, null, null, true)
       }
-      return body
+      return { body, latestLedger: parseLatestLedger(response.headers.get('latest-ledger')) }
     }
 
     const problem = (body ?? {}) as { type?: unknown; title?: unknown; detail?: unknown; extras?: unknown }

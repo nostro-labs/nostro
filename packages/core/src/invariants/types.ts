@@ -18,6 +18,8 @@ export type FindingCode =
   | 'disposition_unsupported'
   | 'allocation_asset'
   | 'allocation_over_movement'
+  // I2
+  | 'balance_mismatch'
   // I3
   | 'journal_unbalanced'
   | 'journal_posting_sequence'

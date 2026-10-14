@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HorizonClient, HorizonError, parseRetryAfter } from '../src/index.js'
+import { HorizonClient, HorizonError, parseLatestLedger, parseRetryAfter } from '../src/index.js'
 
 type Reply = Response | ((signal: AbortSignal) => Promise<Response>) | Error
 
@@ -59,6 +59,12 @@ describe('HorizonClient', () => {
     expect(page.lastCursor).toBe('10-2')
     expect(urls[0]).toBe('https://horizon.example/prefix/effects?cursor=9-1')
     expect((await horizon.page('/effects')).lastCursor).toBeNull()
+  })
+
+  it('says which ledger a resource is as of, when the server does', async () => {
+    const { horizon } = client([json({ id: 'GA' }, 200, { 'latest-ledger': '5190244' }), json({ id: 'GA' })])
+    expect(await horizon.resource('/accounts/GA')).toEqual({ body: { id: 'GA' }, latestLedger: 5190244 })
+    expect((await horizon.resource('/accounts/GA')).latestLedger).toBeNull()
   })
 
   it('refuses a response that is not a collection', async () => {
@@ -146,6 +152,16 @@ describe('HorizonClient', () => {
   it('falls back to the status text when an error body is not a problem document', async () => {
     const { horizon } = client([new Response('nope', { status: 404, statusText: 'Not Found' })])
     await expect(horizon.get('/')).rejects.toMatchObject({ status: 404, problemType: null, extras: null, message: expect.stringContaining('Not Found') })
+  })
+})
+
+describe('parseLatestLedger', () => {
+  it('reads a ledger sequence and nothing else', () => {
+    expect(parseLatestLedger(' 64798891 ')).toBe(64798891)
+    expect(parseLatestLedger('4294967295')).toBe(4294967295)
+    for (const bad of [null, '', '0', '-5', '1.5', '12a', '4294967296', '99999999999']) {
+      expect(parseLatestLedger(bad)).toBeNull()
+    }
   })
 })
 

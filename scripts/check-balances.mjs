@@ -1,46 +1,40 @@
 #!/usr/bin/env node
 /**
- * Ingest real accounts end to end and check the result against Horizon.
+ * Check real accounts end to end with doctor().
  *
  *   pnpm build
  *   node scripts/check-balances.mjs [--public] [--journal] <G...> [<G...> ...]
  *
- * For each account this syncs every effect and fee until both feeds are
- * caught up, sums the movements per asset, and compares the sums with the
- * balances Horizon reports. They should agree to the stroop.
+ * For each account, in a fresh SQLite store in a temporary directory,
+ * doctor() ingests every effect and fee Horizon retains and attests the
+ * balances (I2): per asset, the recorded movements must add up to what
+ * Horizon reports, as of the ledger that balance last changed in. It also
+ * checks every movement's disposition (I1) and journal entry (I3).
  *
- * With --journal it also reconciles every movement (which posts the journal)
- * and checks, per asset, that the journal's cash for the account equals the
- * Horizon balance, that debits equal credits across the whole journal (I3),
- * and that running reconcile and the journal sweep again posts nothing.
- * Journal mode uses a SQLite store in a temporary directory, because it runs
- * one transaction per movement.
+ * With --journal it then reconciles every movement (which posts the
+ * journal), checks that running reconcile and the journal sweep again posts
+ * nothing, and runs doctor() once more over the decided movements and their
+ * entries.
  *
  * This only holds for an account whose whole history Horizon still retains:
  * any testnet account (testnet is reset periodically), or a public-network
  * account younger than the retention window.
  *
- * The comparison uses a consistent snapshot: sync until caught up, read the
- * Horizon balance, then sync again; if anything new arrived in between, do it
- * again. Without that, an account that is still transacting drifts by
- * whatever landed after the last page.
- *
- * Exits non-zero if any account does not match.
+ * Exits non-zero unless every account comes back clean.
  */
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  HorizonBalanceSource,
   HorizonClient,
   HorizonEffectsSource,
   HorizonFeesSource,
-  MemoryStore,
-  NATIVE,
+  doctor,
   postJournal,
   reconcile,
-  signedAmount,
-  sync,
 } from '../packages/core/dist/index.js'
+import { SqliteStore } from '../packages/store-sqlite/dist/index.js'
 
 const args = process.argv.slice(2)
 const pub = args.includes('--public')
@@ -56,7 +50,6 @@ const tenantId = 'check'
 const client = new HorizonClient({
   url: pub ? 'https://horizon.stellar.org' : 'https://horizon-testnet.stellar.org',
 })
-const { SqliteStore } = journal ? await import('../packages/store-sqlite/dist/index.js') : {}
 
 /** Reconcile until nothing is pending; returns how many journal entries were posted. */
 async function reconcileAll(store) {
@@ -82,85 +75,53 @@ async function sweepAll(store) {
   }
 }
 
+const symbol = (asset) => (asset === 'native' ? 'XLM' : asset.slice(0, asset.indexOf(':')))
+
+function summary(report) {
+  const { total, byDisposition } = report.movements
+  const decided = Object.entries(byDisposition)
+    .filter(([, n]) => n > 0)
+    .map(([d, n]) => `${d} ${n}`)
+    .join(', ')
+  const books = report.journal.totals.every((t) => t.debits.equals(t.credits)) ? '=' : '≠'
+  return `${total} movements (${decided || 'none'}), ${report.journal.entries} journal entries, debits ${books} credits`
+}
+
 let failed = false
 for (const account of accounts) {
-  const dir = journal ? mkdtempSync(join(tmpdir(), 'nostro-check-')) : null
-  const store = journal ? new SqliteStore({ filename: join(dir, 'check.db') }) : new MemoryStore()
-  if (journal) await store.migrate()
+  const dir = mkdtempSync(join(tmpdir(), 'nostro-check-'))
+  const store = new SqliteStore({ filename: join(dir, 'check.db') })
+  await store.migrate()
   try {
     const sources = [new HorizonEffectsSource({ client, network }), new HorizonFeesSource({ client, network })]
-    /** Sync both feeds until caught up; returns how many movements were new. */
-    const catchUp = async () => {
-      let inserted = 0
-      for (const source of sources) {
-        for (;;) {
-          const report = await sync({ store, source, tenantId, accounts: [account], maxBatches: 20 })
-          if (report.errors.length > 0) throw report.errors[0].error
-          inserted += report.inserted
-          if (report.accounts[0].caughtUp) break
-        }
-      }
-      return inserted
+    const balances = new HorizonBalanceSource({ client, network })
+    const reports = [await doctor({ store, tenantId, attest: { balances, sources, accounts: [account] } })]
+    const lines = []
+    let ok = reports[0].ok
+    for (const c of reports[0].balances) {
+      const at = c.ledger === null ? '' : `  at ledger ${c.ledger}`
+      lines.push(`  ${c.status === 'mismatch' ? 'FAIL' : 'ok  '} ${symbol(c.asset)}  chain ${c.chain}  recorded ${c.recorded}${at}${c.status === 'issuer' ? '  (issuer: not attested)' : ''}`)
     }
-    await catchUp()
-    let balances
-    for (let attempt = 1; ; attempt++) {
-      ;({ balances } = await client.get(`/accounts/${account}`))
-      if ((await catchUp()) === 0) break
-      if (attempt === 5) throw new Error(`${account} kept transacting; no consistent snapshot after 5 tries`)
-    }
-
-    const movements = await store.listMovements({ tenantId })
-    const net = new Map()
-    for (const m of movements) net.set(m.amount.asset, (net.get(m.amount.asset) ?? 0n) + signedAmount(m).raw)
-
-    const cash = new Map()
-    const imbalance = new Map()
-    const checks = []
     if (journal) {
       const posted = await reconcileAll(store)
-      for (const entry of await store.listJournalEntries({ tenantId })) {
-        for (const l of entry.lines) {
-          const signed = l.side === 'debit' ? l.amount.raw : -l.amount.raw
-          imbalance.set(l.amount.asset, (imbalance.get(l.amount.asset) ?? 0n) + signed)
-          if (l.role === 'cash') cash.set(l.amount.asset, (cash.get(l.amount.asset) ?? 0n) + signed)
-        }
-      }
-      const unbalanced = [...imbalance].filter(([, v]) => v !== 0n)
       const again = (await reconcileAll(store)) + (await sweepAll(store))
-      checks.push([unbalanced.length === 0, `journal: ${posted} entries, debits ${unbalanced.length === 0 ? '=' : '≠'} credits`])
-      checks.push([again === 0, `rerun posted ${again} more`])
+      ok &&= again === 0
+      lines.push(`  ok   reconciled: ${posted} journal entries posted`)
+      lines.push(`  ${again === 0 ? 'ok  ' : 'FAIL'} rerun posted ${again} more`)
+      reports.push(await doctor({ store, tenantId }))
+      ok &&= reports[1].ok
     }
-
-    const lines = []
-    let ok = checks.every(([pass]) => pass)
-    for (const b of balances) {
-      if (b.asset_type === 'liquidity_pool_shares') continue
-      const id = b.asset_type === 'native' ? NATIVE : `${b.asset_code}:${b.asset_issuer}`
-      const horizon = BigInt(b.balance.replace('.', ''))
-      const ours = net.get(id) ?? 0n
-      const books = journal ? (cash.get(id) ?? 0n) : ours
-      net.delete(id)
-      cash.delete(id)
-      const match = horizon === ours && horizon === books
-      ok &&= match
-      lines.push(
-        `  ${id}  horizon ${horizon}  movements ${ours}${journal ? `  journal cash ${books}` : ''}` +
-          (match ? '' : '  MISMATCH'),
-      )
-    }
-    for (const [id, raw] of [...net, ...cash]) {
-      if (raw === 0n) continue
-      ok = false
-      lines.push(`  ${id}  no balance on Horizon  nostro ${raw}`)
+    const last = reports[reports.length - 1]
+    lines.push(`  ${last.ok ? 'ok  ' : 'FAIL'} ${summary(last)}`)
+    for (const f of reports.flatMap((r) => r.findings)) {
+      lines.push(`  ${f.severity === 'error' ? 'FAIL' : 'warn'} ${f.invariant} ${f.code}: ${f.detail}`)
     }
     failed ||= !ok
-    console.log(`${ok ? 'MATCH   ' : 'MISMATCH'} ${account}  ${movements.length} movements`)
-    for (const [pass, text] of checks) console.log(`  ${pass ? 'ok  ' : 'FAIL'} ${text}`)
+    console.log(`${ok ? 'MATCH   ' : 'MISMATCH'} ${account}`)
     for (const line of lines) console.log(line)
   } finally {
     await store.close()
-    if (dir !== null) rmSync(dir, { recursive: true, force: true })
+    rmSync(dir, { recursive: true, force: true })
   }
 }
 process.exit(failed ? 1 : 0)

@@ -96,6 +96,26 @@ export interface HorizonOperation {
   readonly asset_balance_changes?: readonly HorizonBalanceChange[] | null
 }
 
+/** One line of an account's `balances`. */
+export interface HorizonBalance {
+  /** Seven decimal places, e.g. `9936.9163730`. */
+  readonly balance: string
+  /** `native`, `credit_alphanum4`, `credit_alphanum12` or `liquidity_pool_shares`. */
+  readonly asset_type: string
+  readonly asset_code?: string
+  readonly asset_issuer?: string
+  /** The ledger the trustline last changed in. Absent on the native line, which lives on the account itself. */
+  readonly last_modified_ledger?: number
+}
+
+/** `GET /accounts/{id}`. */
+export interface HorizonAccount {
+  readonly id: string
+  /** The ledger the account entry, and so its native balance, last changed in. */
+  readonly last_modified_ledger: number
+  readonly balances: readonly HorizonBalance[]
+}
+
 /** The operation id (a TOID) an effect belongs to. */
 export function operationIdOf(effect: Pick<HorizonEffect, 'paging_token'>): string {
   const dash = effect.paging_token.indexOf('-')

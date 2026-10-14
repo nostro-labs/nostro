@@ -2,15 +2,20 @@
  * `doctor()`: check a tenant's records against the invariants.
  *
  * It reads every movement and every journal entry, so it is a batch job, not
- * something to run per request. It writes nothing. Each movement is read
- * without locks; a movement that shows a problem is read again inside a
- * transaction, which waits for any writer that was part-way through it, and
- * only what is still wrong then is reported.
+ * something to run per request. Each movement is read without locks; a
+ * movement that shows a problem is read again inside a transaction, which
+ * waits for any writer that was part-way through it, and only what is still
+ * wrong then is reported.
+ *
+ * It writes nothing, unless asked to attest balances (I2): that catches the
+ * sources up first, which records new movements as `sync()` would.
  */
 import type { Disposition, JournalEntry, Movement } from '../model/index.js'
 import { Money } from '../money/index.js'
 import type { AssetId } from '../money/index.js'
 import type { Store, StoreReader } from '../store/index.js'
+import type { AttestOptions, BalanceCheck } from './balances.js'
+import { attestBalances } from './balances.js'
 import type { MovementRecords } from './movement.js'
 import { checkMovement } from './movement.js'
 import type { Finding } from './types.js'
@@ -20,6 +25,8 @@ export interface DoctorOptions {
   readonly tenantId: string
   /** Movements and journal entries read per query. Default 500. */
   readonly pageSize?: number
+  /** Also attest these accounts' balances against the chain (I2). */
+  readonly attest?: Omit<AttestOptions, 'store' | 'tenantId'>
 }
 
 export interface JournalTotal {
@@ -43,6 +50,8 @@ export interface DoctorReport {
     /** Per asset across every entry. Debits equal credits when I3 holds. */
     readonly totals: readonly JournalTotal[]
   }
+  /** One check per account and asset, or `null` when balances were not attested. */
+  readonly balances: readonly BalanceCheck[] | null
 }
 
 async function recordsOf(reader: StoreReader, tenantId: string, movement: Movement): Promise<MovementRecords> {
@@ -62,6 +71,24 @@ export async function doctor(options: DoctorOptions): Promise<DoctorReport> {
   const byDisposition: Record<Disposition, number> = { pending: 0, allocated: 0, partial: 0, exception: 0, ignored: 0 }
   let total = 0
   let oldestPending: Date | null = null
+
+  // First, so the movements it catches up are checked below too.
+  const balances = options.attest === undefined ? null : await attestBalances({ store, tenantId, ...options.attest })
+  for (const c of balances ?? []) {
+    if (c.status !== 'mismatch') continue
+    findings.push({
+      invariant: 'I2',
+      severity: 'error',
+      code: 'balance_mismatch',
+      detail:
+        `the chain says ${c.account} holds ${c.chain.toString()} ${c.asset}` +
+        `${c.ledger === null ? '' : ` as of ledger ${c.ledger}`}, but its recorded movements add up to ${c.recorded.toString()}`,
+      movementId: null,
+      entryId: null,
+      account: c.account,
+      asset: c.asset,
+    })
+  }
 
   for (let afterSeq: number | undefined; ; ) {
     const page = await store.listMovements({ tenantId, limit, ...(afterSeq === undefined ? {} : { afterSeq }) })
@@ -123,6 +150,7 @@ export async function doctor(options: DoctorOptions): Promise<DoctorReport> {
         credits: Money.fromRaw(s.credits, s.like.asset, s.like.decimals),
       })),
     },
+    balances,
   }
 }
 
