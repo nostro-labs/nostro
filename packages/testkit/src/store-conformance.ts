@@ -16,6 +16,7 @@ import {
   TransactionClosedError,
   ValidationError,
   asset,
+  doctor,
   reconcile,
 } from 'nostro'
 
@@ -588,6 +589,23 @@ export function describeStoreConformance(name: string, makeStore: () => Store | 
         .flatMap((e) => e.lines)
         .reduce((sum, l) => sum + (l.side === 'debit' ? l.amount.raw : -l.amount.raw), 0n)
       expect(net).toBe(0n)
+    })
+
+    it('runs doctor() alongside reconcilers, and agrees with them once they finish', async () => {
+      await store.transaction((tx) =>
+        tx.insertExpectation({ tenantId: T, reference: 'MUX-8', account: ACCOUNT, amount: usdc('10'), muxedId: 8n }),
+      )
+      for (let i = 0; i < 6; i++) await record({ muxedId: 8n, amount: usdc('2') })
+      const [during] = await Promise.all([
+        doctor({ store, tenantId: T }),
+        reconcile({ store, tenantId: T }),
+        reconcile({ store, tenantId: T }),
+      ])
+      expect(during.findings).toEqual([])
+      const after = await doctor({ store, tenantId: T })
+      expect(after.findings).toEqual([])
+      expect(after.movements.byDisposition).toMatchObject({ allocated: 5, exception: 1, pending: 0 })
+      expect(after.journal.totals.map((t) => t.debits.equals(t.credits))).toEqual([true])
     })
 
     it('reports errors with stable, typed codes', () => {

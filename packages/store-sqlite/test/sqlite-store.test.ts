@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Database from 'better-sqlite3'
 import { afterAll, describe, expect, it } from 'vitest'
-import { Money, NATIVE } from 'nostro'
+import { Money, NATIVE, doctor } from 'nostro'
 import { describeStoreConformance } from 'nostro-testkit'
 import { SqliteStore } from '../src/index.js'
 
@@ -20,6 +20,44 @@ async function freshStore(filename = freshFile()): Promise<SqliteStore> {
 afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
 describeStoreConformance('SqliteStore', () => freshStore())
+
+/** A store file holding one movement and its initial journal entry. */
+async function journaled(): Promise<string> {
+  const filename = freshFile()
+  const store = await freshStore(filename)
+  const { inserted } = await store.transaction((tx) =>
+    tx.insertMovements([
+      {
+        tenantId: 't',
+        network: 'testnet',
+        source: 'horizon',
+        externalId: 'e1',
+        account: `G${'A'.repeat(55)}`,
+        direction: 'credit',
+        kind: 'transfer',
+        amount: Money.parse('10', NATIVE),
+        ledger: 1,
+        occurredAt: new Date('2026-10-05T00:00:00Z'),
+      },
+    ]),
+  )
+  const m = inserted[0]!
+  await store.transaction((tx) =>
+    tx.postJournalEntry({
+      tenantId: 't',
+      movementId: m.id,
+      postingNo: 1,
+      kind: 'initial',
+      description: 'Received 10 XLM',
+      lines: [
+        { account: 'cash', role: 'cash', side: 'debit', amount: m.amount },
+        { account: 'unapplied', role: 'unapplied', side: 'credit', amount: m.amount },
+      ],
+    }),
+  )
+  await store.close()
+  return filename
+}
 
 describe('SqliteStore', () => {
   it('refuses an in-memory database, which a second connection could not share', () => {
@@ -73,39 +111,7 @@ describe('SqliteStore', () => {
   })
 
   it('refuses to edit or delete posted journal entries', async () => {
-    const filename = freshFile()
-    const store = await freshStore(filename)
-    const { inserted } = await store.transaction((tx) =>
-      tx.insertMovements([
-        {
-          tenantId: 't',
-          network: 'testnet',
-          source: 'horizon',
-          externalId: 'e1',
-          account: `G${'A'.repeat(55)}`,
-          direction: 'credit',
-          kind: 'transfer',
-          amount: Money.parse('10', NATIVE),
-          ledger: 1,
-          occurredAt: new Date('2026-10-05T00:00:00Z'),
-        },
-      ]),
-    )
-    const m = inserted[0]!
-    await store.transaction((tx) =>
-      tx.postJournalEntry({
-        tenantId: 't',
-        movementId: m.id,
-        postingNo: 1,
-        kind: 'initial',
-        description: 'Received 10 XLM',
-        lines: [
-          { account: 'cash', role: 'cash', side: 'debit', amount: m.amount },
-          { account: 'unapplied', role: 'unapplied', side: 'credit', amount: m.amount },
-        ],
-      }),
-    )
-    await store.close()
+    const filename = await journaled()
     const db = new Database(filename)
     for (const sql of [
       "UPDATE journal_entries SET description = 'edited'",
@@ -116,6 +122,21 @@ describe('SqliteStore', () => {
       expect(() => db.prepare(sql).run()).toThrow(/append-only/)
     }
     db.close()
+  })
+
+  it('cannot refuse a line inserted behind its back, so doctor() reports it', async () => {
+    const filename = await journaled()
+    const db = new Database(filename)
+    db.prepare(
+      `INSERT INTO journal_lines (entry_id, line_no, tenant_id, account, role, side, asset, decimals, amount)
+       VALUES ((SELECT id FROM journal_entries), 3, 't', 'cash', 'cash', 'debit', 'native', 7, '1')`,
+    ).run()
+    db.close()
+    const store = await freshStore(filename)
+    const report = await doctor({ store, tenantId: 't' })
+    expect(report.ok).toBe(false)
+    expect(report.findings).toEqual([expect.objectContaining({ invariant: 'I3', code: 'journal_unbalanced' })])
+    await store.close()
   })
 
   it('upgrades a version 1 database with data to version 2', async () => {
