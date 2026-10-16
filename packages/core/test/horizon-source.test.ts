@@ -1,119 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import type { HorizonEffect, HorizonOperation, HorizonTransaction } from '../src/index.js'
-import { HorizonClient, HorizonEffectsSource, HorizonFeesSource, MemoryStore, sync } from '../src/index.js'
+import { FakeHorizon, hash, toid } from 'nostro-testkit'
+import type { HorizonEffect, HorizonOperation } from '../src/index.js'
+import { HorizonEffectsSource, HorizonFeesSource, MemoryStore, sync } from '../src/index.js'
 
 const A = `G${'A'.repeat(55)}`
 const B = `G${'B'.repeat(55)}`
 const T = 'tenant'
-
-const toid = (ledger: number, op: number) => ((BigInt(ledger) << 32n) | (1n << 12n) | BigInt(op)).toString()
-const hash = (n: number) => n.toString(16).padStart(64, '0')
-
-/** Order Horizon paging tokens: `<toid>-<order>`, or a bare toid meaning "after all of it". */
-function position(token: string): [bigint, number] {
-  const [op, order] = token.split('-')
-  return [BigInt(op!), order === undefined ? Number.POSITIVE_INFINITY : Number(order)]
-}
-const after = (a: string, b: string) => {
-  const [ao, an] = position(a)
-  const [bo, bn] = position(b)
-  return ao > bo || (ao === bo && an > bn)
-}
-
-/** An in-memory Horizon with the real paging semantics: strictly-after cursors, asc/desc, 404s. */
-class FakeHorizon {
-  effects: HorizonEffect[] = []
-  operations = new Map<string, HorizonOperation>()
-  /** Which accounts' operations feed lists each operation. */
-  participants = new Map<string, Set<string>>()
-  transactions: (HorizonTransaction & { participants: string[] })[] = []
-  gone = new Set<string>()
-  requests: URL[] = []
-
-  readonly fetch = (async (input: string | URL | Request) => {
-    const url = new URL(String(input))
-    this.requests.push(url)
-    const q = url.searchParams
-    const respond = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
-    const notFound = () => respond({ type: 'https://stellar.org/horizon-errors/not_found', status: 404 }, 404)
-    const page = <R extends { paging_token: string }>(all: R[]) => {
-      const desc = q.get('order') === 'desc'
-      const cursor = q.get('cursor')
-      let rows = [...all].sort((x, y) => (after(x.paging_token, y.paging_token) ? 1 : -1))
-      if (desc) rows.reverse()
-      if (cursor !== null) rows = rows.filter((r) => (desc ? after(cursor, r.paging_token) : after(r.paging_token, cursor)))
-      return respond({ _embedded: { records: rows.slice(0, Number(q.get('limit') ?? 10)) } })
-    }
-    const known = (account: string) =>
-      this.effects.some((e) => e.account === account) || this.transactions.some((t) => t.participants.includes(account))
-
-    let m: RegExpMatchArray | null
-    if ((m = url.pathname.match(/^\/accounts\/(\w+)\/effects$/))) {
-      return known(m[1]!) ? page(this.effects.filter((e) => e.account === m![1])) : notFound()
-    }
-    if ((m = url.pathname.match(/^\/accounts\/(\w+)\/operations$/))) {
-      expect(q.get('join')).toBe('transactions')
-      return page([...this.operations.values()].filter((o) => this.participants.get(o.id)?.has(m![1]!)))
-    }
-    if ((m = url.pathname.match(/^\/operations\/(\d+)$/))) {
-      const op = this.operations.get(m[1]!)
-      return op === undefined || this.gone.has(op.id) ? notFound() : respond(op)
-    }
-    if ((m = url.pathname.match(/^\/accounts\/(\w+)\/transactions$/))) {
-      if (!known(m[1]!)) return notFound()
-      const failed = q.get('include_failed') === 'true'
-      return page(this.transactions.filter((t) => t.participants.includes(m![1]!) && (failed || t.successful)))
-    }
-    throw new Error(`unrouted ${url.pathname}`)
-  }) as typeof globalThis.fetch
-
-  client(): HorizonClient {
-    return new HorizonClient({ url: 'https://horizon.test', fetch: this.fetch, retries: 0 })
-  }
-
-  /** Add a payment from `from` to `to` in `ledger`, with `extra` non-value effects on `to`. */
-  payment(ledger: number, from: string, to: string, amount: string, { listed = true, extra = 0 } = {}): string {
-    const id = toid(ledger, 1)
-    const tx: HorizonTransaction = {
-      hash: hash(ledger),
-      paging_token: (BigInt(id) - 1n).toString(),
-      ledger,
-      created_at: '2026-10-06T00:00:00Z',
-      successful: true,
-      source_account: from,
-      fee_account: from,
-      fee_charged: '100',
-      memo_type: 'text',
-      memo: `INV-${ledger}`,
-    }
-    this.operations.set(id, {
-      id,
-      paging_token: id,
-      type: 'payment',
-      source_account: from,
-      transaction_hash: tx.hash,
-      transaction: tx,
-      from,
-      to,
-    })
-    this.participants.set(id, new Set(listed ? [from, to] : [from]))
-    const effect = (order: number, account: string, type: string, rest: Partial<HorizonEffect> = {}): HorizonEffect => ({
-      id: `${id.padStart(19, '0')}-${String(order).padStart(10, '0')}`,
-      paging_token: `${id}-${order}`,
-      account,
-      type,
-      created_at: tx.created_at,
-      ...rest,
-    })
-    this.effects.push(effect(1, to, 'account_credited', { asset_type: 'native', amount }))
-    for (let i = 0; i < extra; i++) this.effects.push(effect(2 + i, to, 'signer_created'))
-    this.effects.push(effect(2 + extra, from, 'account_debited', { asset_type: 'native', amount }))
-    this.transactions.push({ ...tx, participants: [from, to] })
-    return id
-  }
-}
 
 const effects = (h: FakeHorizon, options: Partial<ConstructorParameters<typeof HorizonEffectsSource>[0]> = {}) =>
   new HorizonEffectsSource({ client: h.client(), network: 'testnet', ...options })

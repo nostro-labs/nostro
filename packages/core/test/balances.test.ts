@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { FakeHorizon } from 'nostro-testkit'
 import type { BalanceSnapshot, BalanceSource, Movement, MovementSource, NewMovement, PullRequest } from '../src/index.js'
 import {
   HorizonBalanceSource,
   HorizonClient,
+  HorizonEffectsSource,
+  HorizonFeesSource,
   MemoryStore,
   Money,
   NATIVE,
@@ -309,5 +312,35 @@ describe('HorizonBalanceSource', () => {
   it('passes on any other failure', async () => {
     const { source } = serve(400, { type: 'https://stellar.org/horizon-errors/bad_request', status: 400 })
     await expect(source.snapshot(A)).rejects.toMatchObject({ name: 'HorizonError', status: 400 })
+  })
+})
+
+describe('attesting through the Horizon sources', () => {
+  // A is paid 25 by B, then pays B 5 and the 100-stroop fee.
+  const horizon = () => {
+    const h = new FakeHorizon()
+    h.payment(10, B, A, '25')
+    h.payment(11, A, B, '5')
+    h.accounts.set(A, { id: A, last_modified_ledger: 11, balances: [{ balance: '19.9999900', asset_type: 'native' }] })
+    return h
+  }
+  const attest = (h: FakeHorizon, fees: boolean) => {
+    const client = h.client()
+    const sources: MovementSource[] = [new HorizonEffectsSource({ client, network: 'testnet' })]
+    if (fees) sources.push(new HorizonFeesSource({ client, network: 'testnet' }))
+    const balances = new HorizonBalanceSource({ client, network: 'testnet' })
+    return attestBalances({ store: new MemoryStore(), tenantId: T, balances, sources, accounts: [A], attempts: 1 })
+  }
+
+  it('matches when both the effects and the fees are read', async () => {
+    const [check] = await attest(horizon(), true)
+    expect(check).toMatchObject({ asset: NATIVE, status: 'match', ledger: 11 })
+    expect(check!.recorded.toString()).toBe('19.9999900')
+  })
+
+  it('is short by the fees when the fees source is left out', async () => {
+    const [check] = await attest(horizon(), false)
+    expect(check!.status).toBe('mismatch')
+    expect(check!.chain.subtract(check!.recorded).toString()).toBe('-0.0000100')
   })
 })
