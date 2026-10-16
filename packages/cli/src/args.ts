@@ -142,3 +142,21 @@ export function accounts(args: Args, io: Io): string[] {
   }
   return [...new Set(list)]
 }
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/
+const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/
+
+/**
+ * A date option: `YYYY-MM-DD` (midnight UTC), or an ISO 8601 instant with
+ * its offset. Nothing looser: a date that could be read two ways is refused.
+ */
+export function date(args: Args, name: string): Date | undefined {
+  const raw = string(args, name)
+  if (raw === undefined) return undefined
+  const at = DAY.test(raw) ? new Date(`${raw}T00:00:00Z`) : INSTANT.test(raw) ? new Date(raw) : null
+  const day = raw.slice(0, 10)
+  if (at === null || Number.isNaN(at.getTime()) || (DAY.test(raw) && at.toISOString().slice(0, 10) !== day)) {
+    throw new UsageError(`--${name} must be a date (2026-10-31) or an instant with its offset (2026-10-31T17:00:00Z).`)
+  }
+  return at
+}

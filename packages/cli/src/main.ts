@@ -6,13 +6,16 @@
 import { readFileSync } from 'node:fs'
 import { CliError, UsageError, parse } from './args.js'
 import type { Command } from './command.js'
+import { exceptions } from './commands/exceptions.js'
+import { expect } from './commands/expect.js'
+import { expectations } from './commands/expectations.js'
 import { migrate } from './commands/migrate.js'
 import { reconcile } from './commands/reconcile.js'
 import { sync } from './commands/sync.js'
 import type { Io } from './io.js'
 import { clean, write } from './io.js'
 
-export const COMMANDS: readonly Command[] = [migrate, sync, reconcile]
+export const COMMANDS: readonly Command[] = [migrate, sync, expect, expectations, reconcile, exceptions]
 
 export function version(): string {
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }
@@ -69,13 +72,16 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
     return await command.run(args, io)
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err))
+    // A message may span lines; anything else that could drive the terminal is escaped.
+    const lines = (text: string) => text.split('\n').map(clean).join('\n')
+    const message = lines(error.message)
     if (error instanceof UsageError) {
       const hint = COMMANDS.some((c) => c.name === name) ? `nostro ${name} --help` : 'nostro --help'
-      await write(io.stderr, `nostro: ${clean(error.message)}\nRun "${hint}" for usage.\n`)
+      await write(io.stderr, `nostro: ${message}\nRun "${hint}" for usage.\n`)
       return 2
     }
     const detail = io.env.NOSTRO_DEBUG !== undefined && !(error instanceof CliError) ? error.stack : undefined
-    await write(io.stderr, `nostro: ${clean(error.message)}\n${detail === undefined ? '' : `${detail}\n`}`)
+    await write(io.stderr, `nostro: ${message}\n${detail === undefined ? '' : `${lines(detail)}\n`}`)
     return 1
   }
 }

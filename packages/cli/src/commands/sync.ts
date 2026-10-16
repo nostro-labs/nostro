@@ -111,7 +111,7 @@ ${COMMON_HELP}`,
       await write(
         io.stdout,
         `${conflicts} re-delivered record(s) disagreed with what was recorded; each opened a ` +
-          `SOURCE_GAP_DETECTED exception.\n`,
+          `SOURCE_GAP_DETECTED exception (nostro exceptions --code SOURCE_GAP_DETECTED).\n`,
       )
     }
     return failed ? 1 : 0

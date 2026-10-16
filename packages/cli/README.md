@@ -5,16 +5,25 @@ history from Horizon and reconcile it, from a shell or a cron job, against a SQL
 PostgreSQL.
 
 ```sh
-nostro migrate                       # create ./nostro.db
-nostro sync --account G...           # ingest every effect and fee Horizon keeps, until caught up
-nostro reconcile                     # decide every pending movement, posting each to the journal
+nostro migrate                                       # create ./nostro.db
+nostro sync --account G...                           # ingest every effect and fee Horizon keeps
+nostro expect INV-1042 --account G... --amount 25    # record what you are owed
+nostro reconcile                                     # decide every pending movement, and post it
+nostro exceptions                                    # what needs a person, and why
 ```
 
 | Command | What it does |
 |---|---|
 | `migrate` | Creates the database, or applies the migrations it is missing. The only command that changes the schema; every other one refuses a database that is not exactly at the version it expects. |
 | `sync` | Ingests effects and fees for each `--account`, until caught up (or one round with `--once`). |
+| `expect` | Records an expectation: a reference, an account, an amount, and optionally a muxed id, a memo, payers, due and expiry dates. Never rounds an amount. |
+| `expectations` | Lists expectations with what has been allocated to each. |
 | `reconcile` | Matches pending movements against expectations and posts each decision to the journal. |
+| `exceptions` | Lists what reconcile would not decide alone, with the reason (and, in `--json`, the evidence). |
+
+Resolving exceptions from the command line is not there yet: resolving one by hand can leave its
+movement's disposition unsupported (see `docs/invariants.md`), so it needs a workflow that
+allocates or ignores the movement in the same step.
 
 Every command takes `--db` (a SQLite file, `sqlite:<path>`, or a `postgres://` URL; default
 `./nostro.db`), `--tenant` (default `default`) and `--json`. `nostro <command> --help` lists the

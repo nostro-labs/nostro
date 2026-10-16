@@ -36,7 +36,7 @@ describe('nostro', () => {
     const cwd = workspace()
     const asked = await nostro(cwd, ['--help'])
     expect(asked.code).toBe(0)
-    expect(asked.stdout).toMatch(/Commands:\n {2}migrate {4}Create the database/)
+    expect(asked.stdout).toMatch(/Commands:\n {2}migrate +Create the database/)
     expect(asked.stdout).toContain('never signs a transaction')
     expect((await nostro(cwd, ['help'])).stdout).toBe(asked.stdout)
     const bare = await nostro(cwd, [])
@@ -279,7 +279,7 @@ describe('nostro sync', () => {
     db.close()
     const run = await nostro(cwd, ['sync', '--account', A], { fetch: h.fetch })
     expect(run.code).toBe(0)
-    expect(run.stdout).toContain('1 re-delivered record(s) disagreed with what was recorded; each opened a SOURCE_GAP_DETECTED exception.')
+    expect(run.stdout).toContain('1 re-delivered record(s) disagreed with what was recorded; each opened a SOURCE_GAP_DETECTED exception (nostro exceptions --code SOURCE_GAP_DETECTED).')
   })
 })
 
