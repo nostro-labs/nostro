@@ -10,9 +10,10 @@
 > `Store` contract with in-memory, SQLite (`nostro-store-sqlite`) and PostgreSQL
 > (`nostro-store-postgres`) stores that pass one shared conformance suite, and Horizon ingestion
 > (effects and fees) through a bounded `sync()` loop, matching through `reconcile()`, and a
-> double-entry journal posted as movements are decided, with CSV export, and `doctor()`, which checks
-> all three invariants. The CLI and server are in progress — see [Roadmap](#roadmap). Nothing here is
-> production-ready yet, and this README marks what exists versus what doesn't.
+> double-entry journal posted as movements are decided, with CSV export, `doctor()`, which checks
+> all three invariants, and a `nostro` command line over all of it (`nostro-cli`). The server is in
+> progress — see [Roadmap](#roadmap). Nothing here is production-ready yet, and this README marks
+> what exists versus what doesn't.
 
 ## The problem
 
@@ -108,6 +109,25 @@ movements with its on-chain balance in every asset, as of the ledger that balanc
 so an account that keeps transacting can still be checked exactly
 ([ADR 0008](./docs/adr/0008-balance-attestation-at-a-ledger.md)). Each finding and what to do about
 it: [docs/invariants.md](./docs/invariants.md).
+
+## From the command line (works today)
+
+```sh
+nostro migrate                                       # create ./nostro.db (or --db postgres://...)
+nostro sync --account G...                           # ingest every effect and fee, until caught up
+nostro expect INV-1042 --account G... --amount 25    # record what you are owed
+nostro reconcile                                     # decide every pending movement, and post it
+nostro exceptions                                    # what needs a person, and why
+nostro doctor --attest --account G...                # check the books, and the balances on chain
+nostro export --output journal.csv                   # the journal, a row per line
+```
+
+Each command exits non-zero when it fails or finds a problem, so it can run from cron or CI. Only
+`migrate` changes the schema; every other command refuses a database that is not exactly at the
+version it expects. On testnet, `nostro doctor --attest` matched three accounts with 3, 9,427
+and 53,740 movements to the stroop in every asset. All the commands and options are in
+[packages/cli](./packages/cli/README.md). It is not on npm yet: from a checkout, `pnpm build`, then
+run `node packages/cli/dist/bin.js`.
 
 ## What it does
 

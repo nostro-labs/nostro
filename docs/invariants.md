@@ -12,6 +12,9 @@ but some states are reached by legal steps, and a database can be changed behind
 
 ## Running it
 
+From the command line, `nostro doctor` checks I1 and I3, and `nostro doctor --attest --account G...`
+adds I2; it exits 1 if any invariant does not hold. From code:
+
 ```ts
 import { HorizonBalanceSource, HorizonClient, HorizonEffectsSource, HorizonFeesSource, doctor } from 'nostro'
 
@@ -52,7 +55,7 @@ its lock before it is reported.
 | `journal_posting_sequence` | I3 | error | A movement's posting numbers are not 1, 2, 3… | As above. |
 | `journal_asset` | I3 | error | A line is in a different asset from its movement. | As above. |
 | `journal_cash_mismatch` | I3 | error | A movement's cash lines net to something other than zero or its exact amount. | As above. |
-| `journal_stale` | I3 | warning | The movement was decided, but the journal does not reflect the decision yet. | Run `postJournal()`. `reconcile()` posts as it decides, so this follows decisions made by hand. |
+| `journal_stale` | I3 | warning | The movement was decided, but the journal does not reflect the decision yet. | Run `postJournal()` (`nostro post`). `reconcile()` posts as it decides, so this follows decisions made by hand. |
 
 Pending movements are not findings: they are the matching queue. The report counts them and gives
 the date of the oldest.
@@ -83,3 +86,6 @@ Not covered yet:
   against real accounts. On 2026-10-14 three testnet accounts with 3, 8,833 and 53,187 movements
   matched to the stroop in every asset, with every movement reconciled and posted, and the journal
   balanced.
+- On 2026-10-16 the same three accounts, then holding 3, 9,427 and 53,740 movements, were synced,
+  reconciled and checked with the CLI (`nostro sync`, `nostro reconcile`,
+  `nostro doctor --attest`): every asset matched to the stroop, seven asset lines in all.
