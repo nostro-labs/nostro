@@ -196,6 +196,25 @@ export interface Store extends StoreReader {
   close(): Promise<void>
 }
 
+/** Where a database's schema is, against where this store would take it. */
+export interface SchemaVersion {
+  /** The version the database is at; 0 for one never migrated. */
+  readonly current: number
+  /** The version `migrate()` brings it to. */
+  readonly latest: number
+}
+
+/**
+ * A store backed by a database with a schema of its own. Opening one never
+ * changes the schema; only `migrate()` does, so upgrading nostro cannot alter
+ * a production database behind anyone's back.
+ */
+export interface MigratableStore extends Store {
+  /** Apply any pending migrations. */
+  migrate(): Promise<void>
+  schemaVersion(): Promise<SchemaVersion>
+}
+
 export type ConstraintName =
   | 'allocation_unique'
   | 'allocation_asset'

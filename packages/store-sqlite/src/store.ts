@@ -28,6 +28,7 @@ import type {
   JournalQuery,
   Json,
   Memo,
+  MigratableStore,
   Movement,
   MovementConflict,
   MovementQuery,
@@ -37,7 +38,7 @@ import type {
   NewJournalEntry,
   NewMovement,
   Resolution,
-  Store,
+  SchemaVersion,
   StoreReader,
   StoreTx,
 } from 'nostro'
@@ -645,7 +646,7 @@ class SqliteTx extends SqliteReader implements StoreTx {
   }
 }
 
-export class SqliteStore extends SqliteReader implements Store {
+export class SqliteStore extends SqliteReader implements MigratableStore {
   private readonly writer: Database.Database
   private readonly reader: Database.Database
   private tail: Promise<unknown> = Promise.resolve()
@@ -698,6 +699,12 @@ export class SqliteStore extends SqliteReader implements Store {
         this.writer.pragma(`user_version = ${v}`)
       }
     })
+  }
+
+  /** The database's `user_version`, and the version `migrate()` brings it to. */
+  schemaVersion(): Promise<SchemaVersion> {
+    const current = this.reader.pragma('user_version', { simple: true }) as number
+    return Promise.resolve({ current, latest: MIGRATIONS.length })
   }
 
   transaction<T>(fn: (tx: StoreTx) => Promise<T>): Promise<T> {

@@ -50,6 +50,18 @@ if (pool === undefined) {
       expect(rows.map((r) => r.version)).toEqual([1, 2])
     })
 
+    it('reports the schema version without changing it', async () => {
+      const schema = `nostro_test_${randomUUID().replaceAll('-', '').slice(0, 16)}`
+      schemas.push(schema)
+      const store = new PostgresStore({ pool: pool!, schema })
+      expect(await store.schemaVersion()).toEqual({ current: 0, latest: 2 })
+      expect(await store.schemaVersion()).toEqual({ current: 0, latest: 2 })
+      await store.migrate()
+      expect(await store.schemaVersion()).toEqual({ current: 2, latest: 2 })
+      await pool.query(`DELETE FROM "${schema}".migrations WHERE version = 2`)
+      expect(await store.schemaVersion()).toEqual({ current: 1, latest: 2 })
+    })
+
     it('keeps amounts exact beyond 64 bits', async () => {
       const store = await freshStore()
       const huge = Money.fromRaw(2n ** 100n + 7n, NATIVE)

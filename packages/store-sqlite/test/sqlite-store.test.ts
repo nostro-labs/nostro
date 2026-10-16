@@ -68,8 +68,11 @@ describe('SqliteStore', () => {
 
   it('migrates idempotently and records the schema version', async () => {
     const filename = freshFile()
-    const store = await freshStore(filename)
+    const store = new SqliteStore({ filename })
+    expect(await store.schemaVersion()).toEqual({ current: 0, latest: 3 })
     await store.migrate()
+    await store.migrate()
+    expect(await store.schemaVersion()).toEqual({ current: 3, latest: 3 })
     await store.close()
     const db = new Database(filename, { readonly: true })
     expect(db.pragma('user_version', { simple: true })).toBe(3)

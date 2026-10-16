@@ -27,6 +27,7 @@ import type {
   InsertMovementsResult,
   JournalEntry,
   JournalQuery,
+  MigratableStore,
   Movement,
   MovementConflict,
   MovementQuery,
@@ -36,7 +37,7 @@ import type {
   NewJournalEntry,
   NewMovement,
   Resolution,
-  Store,
+  SchemaVersion,
   StoreReader,
   StoreTx,
 } from 'nostro'
@@ -563,7 +564,7 @@ class PgTx extends PgReader implements StoreTx {
   }
 }
 
-export class PostgresStore extends PgReader implements Store {
+export class PostgresStore extends PgReader implements MigratableStore {
   private readonly pool: Pool
   private readonly ownsPool: boolean
   private readonly schema: string
@@ -616,6 +617,17 @@ export class PostgresStore extends PgReader implements Store {
     } finally {
       client.release()
     }
+  }
+
+  /** The highest migration applied to this schema, and the version `migrate()` brings it to. */
+  async schemaVersion(): Promise<SchemaVersion> {
+    const latest = MIGRATIONS.length
+    const [table] = await this.run<{ name: string | null }>('SELECT to_regclass($1)::text AS name', [`${this.s}.migrations`])
+    if (table?.name == null) return { current: 0, latest }
+    const [row] = await this.run<{ version: number }>(
+      `SELECT coalesce(max(version), 0) AS version FROM ${this.s}.migrations`,
+    )
+    return { current: row!.version, latest }
   }
 
   async transaction<T>(fn: (tx: StoreTx) => Promise<T>): Promise<T> {
