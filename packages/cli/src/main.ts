@@ -6,16 +6,29 @@
 import { readFileSync } from 'node:fs'
 import { CliError, UsageError, parse } from './args.js'
 import type { Command } from './command.js'
+import { doctor } from './commands/doctor.js'
 import { exceptions } from './commands/exceptions.js'
 import { expect } from './commands/expect.js'
 import { expectations } from './commands/expectations.js'
+import { exportJournal } from './commands/export.js'
 import { migrate } from './commands/migrate.js'
+import { post } from './commands/post.js'
 import { reconcile } from './commands/reconcile.js'
 import { sync } from './commands/sync.js'
 import type { Io } from './io.js'
 import { clean, write } from './io.js'
 
-export const COMMANDS: readonly Command[] = [migrate, sync, expect, expectations, reconcile, exceptions]
+export const COMMANDS: readonly Command[] = [
+  migrate,
+  sync,
+  expect,
+  expectations,
+  reconcile,
+  exceptions,
+  post,
+  doctor,
+  exportJournal,
+]
 
 export function version(): string {
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }
