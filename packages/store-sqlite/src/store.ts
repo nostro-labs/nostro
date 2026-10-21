@@ -151,6 +151,7 @@ const toExpectation = (r: Row): Expectation =>
   Object.freeze({
     id: r.id as string,
     tenantId: r.tenant_id as string,
+    seq: r.seq as number,
     reference: r.reference as string,
     account: r.account as string,
     direction: r.direction as Expectation['direction'],
@@ -183,6 +184,7 @@ const toException = (r: Row): ExceptionRecord =>
   Object.freeze({
     id: r.id as string,
     tenantId: r.tenant_id as string,
+    seq: r.seq as number,
     code: r.code as ExceptionRecord['code'],
     status: r.status as ExceptionRecord['status'],
     movementId: r.movement_id as string | null,
@@ -296,6 +298,7 @@ class SqliteReader implements StoreReader {
       .add('direction = ?', q.direction)
       .in('status', q.status)
       .add('muxed_id = ?', q.muxedId === undefined ? undefined : q.muxedId.toString())
+      .add('seq > ?', q.afterSeq)
     return this.all(`SELECT * FROM expectations${w} ORDER BY seq${w.limit(q.limit)}`, w.params).map(toExpectation)
   }
 
@@ -319,6 +322,7 @@ class SqliteReader implements StoreReader {
       .add('code = ?', q.code)
       .add('movement_id = ?', q.movementId)
       .add('expectation_id = ?', q.expectationId)
+      .add('seq > ?', q.afterSeq)
     return this.all(`SELECT * FROM exceptions${w} ORDER BY seq${w.limit(q.limit)}`, w.params).map(toException)
   }
 

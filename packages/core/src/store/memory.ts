@@ -171,6 +171,7 @@ abstract class MemoryReader implements StoreReader {
       if (q.direction !== undefined && e.direction !== q.direction) continue
       if (q.status !== undefined && !q.status.includes(e.status)) continue
       if (q.muxedId !== undefined && e.muxedId !== q.muxedId) continue
+      if (q.afterSeq !== undefined && e.seq <= q.afterSeq) continue
       out.push(e)
       if (q.limit !== undefined && out.length >= q.limit) break
     }
@@ -204,6 +205,7 @@ abstract class MemoryReader implements StoreReader {
       if (q.code !== undefined && e.code !== q.code) continue
       if (q.movementId !== undefined && e.movementId !== q.movementId) continue
       if (q.expectationId !== undefined && e.expectationId !== q.expectationId) continue
+      if (q.afterSeq !== undefined && e.seq <= q.afterSeq) continue
       out.push(e)
       if (q.limit !== undefined && out.length >= q.limit) break
     }
@@ -368,6 +370,7 @@ class MemoryTx extends MemoryReader implements StoreTx {
     const expectation: Expectation = Object.freeze({
       id: this.ids(),
       tenantId: n.tenantId,
+      seq: ++this.draft.seq,
       reference: n.reference,
       account: n.account,
       direction: n.direction ?? 'credit',
@@ -491,6 +494,7 @@ class MemoryTx extends MemoryReader implements StoreTx {
     const record: ExceptionRecord = Object.freeze({
       id: this.ids(),
       tenantId: n.tenantId,
+      seq: ++this.draft.seq,
       code: n.code,
       status: 'open',
       movementId: n.movementId ?? null,

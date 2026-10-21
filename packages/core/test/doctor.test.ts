@@ -73,6 +73,7 @@ describe('checkMovement', () => {
   const exception = (status: ExceptionRecord['status']): ExceptionRecord => ({
     id: 'x1',
     tenantId: T,
+    seq: 1,
     code: 'OVERPAYMENT',
     status,
     movementId: 'm1',

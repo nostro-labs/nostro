@@ -311,6 +311,20 @@ export function describeStoreConformance(name: string, makeStore: () => Store | 
         expect(await ids({ asset: USDC, status: ['open', 'partially_paid'] })).toEqual([muxed.id, payout.id])
       })
 
+      it('pages expectations in creation order, which a status change does not move', async () => {
+        const made = [await expect10(), await expect10(), await expect10()]
+        expect(made[0]!.seq).toBeLessThan(made[1]!.seq)
+        expect(made[1]!.seq).toBeLessThan(made[2]!.seq)
+        await store.transaction((tx) => tx.cancelExpectation(T, made[0]!.id, 'customer withdrew'))
+        expect((await store.getExpectation(T, made[0]!.id))!.seq).toBe(made[0]!.seq)
+        const page = async (afterSeq?: number) =>
+          store.listExpectations({ tenantId: T, limit: 2, ...(afterSeq === undefined ? {} : { afterSeq }) })
+        const first = await page()
+        expect(first.map((e) => e.id)).toEqual([made[0]!.id, made[1]!.id])
+        expect((await page(first[1]!.seq)).map((e) => e.id)).toEqual([made[2]!.id])
+        expect(await page(made[2]!.seq)).toEqual([])
+      })
+
       it('cancels only an expectation with nothing allocated to it', async () => {
         const e = await expect10()
         const cancelled = await store.transaction((tx) => tx.cancelExpectation(T, e.id, 'duplicate invoice'))
@@ -520,6 +534,25 @@ export function describeStoreConformance(name: string, makeStore: () => Store | 
         await expect(
           store.transaction((tx) => tx.resolveException(T, opened.id, { status: 'dismissed', note: 'again' })),
         ).rejects.toMatchObject(constraint('exception_not_open'))
+      })
+
+      it('pages exceptions in opening order, which resolving one does not move', async () => {
+        const m = await record()
+        const open = (code: 'AMBIGUOUS_MATCH' | 'WRONG_ASSET') =>
+          store.transaction((tx) => tx.openException({ tenantId: T, code, movementId: m.id, detail: code }))
+        const made = [await open('AMBIGUOUS_MATCH'), await open('WRONG_ASSET'), await open('AMBIGUOUS_MATCH')]
+        expect(made[0]!.seq).toBeLessThan(made[1]!.seq)
+        expect(made[1]!.seq).toBeLessThan(made[2]!.seq)
+        const resolved = await store.transaction((tx) =>
+          tx.resolveException(T, made[0]!.id, { status: 'dismissed', note: 'seen' }),
+        )
+        expect(resolved.seq).toBe(made[0]!.seq)
+        const page = (afterSeq: number) => store.listExceptions({ tenantId: T, afterSeq, limit: 1 })
+        expect((await page(made[0]!.seq)).map((x) => x.id)).toEqual([made[1]!.id])
+        expect((await page(made[1]!.seq)).map((x) => x.id)).toEqual([made[2]!.id])
+        expect(
+          (await store.listExceptions({ tenantId: T, code: 'AMBIGUOUS_MATCH', afterSeq: made[0]!.seq })).map((x) => x.id),
+        ).toEqual([made[2]!.id])
       })
 
       it('requires a subject, a known code and an existing referent', async () => {

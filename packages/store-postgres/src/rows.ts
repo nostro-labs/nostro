@@ -39,6 +39,7 @@ export interface MovementRow {
 export interface ExpectationRow {
   id: string
   tenant_id: string
+  seq: string
   reference: string
   account: string
   direction: Expectation['direction']
@@ -75,6 +76,7 @@ export interface AllocationRow {
 export interface ExceptionRow {
   id: string
   tenant_id: string
+  seq: string
   code: ExceptionRecord['code']
   status: ExceptionRecord['status']
   movement_id: string | null
@@ -144,6 +146,7 @@ export function toExpectation(r: ExpectationRow): Expectation {
   return Object.freeze({
     id: r.id,
     tenantId: r.tenant_id,
+    seq: Number(r.seq),
     reference: r.reference,
     account: r.account,
     direction: r.direction,
@@ -178,6 +181,7 @@ export function toException(r: ExceptionRow): ExceptionRecord {
   return Object.freeze({
     id: r.id,
     tenantId: r.tenant_id,
+    seq: Number(r.seq),
     code: r.code,
     status: r.status,
     movementId: r.movement_id,

@@ -47,6 +47,8 @@ export interface ExpectationQuery {
   readonly direction?: Direction
   readonly status?: readonly ExpectationStatus[]
   readonly muxedId?: bigint
+  /** Return expectations with `seq` greater than this; for paging in creation order. */
+  readonly afterSeq?: number
   readonly limit?: number
 }
 
@@ -62,6 +64,8 @@ export interface ExceptionQuery {
   readonly code?: ExceptionCode
   readonly movementId?: string
   readonly expectationId?: string
+  /** Return exceptions with `seq` greater than this; for paging in opening order. */
+  readonly afterSeq?: number
   readonly limit?: number
 }
 

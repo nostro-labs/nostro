@@ -127,6 +127,8 @@ export type ExpectationStatus = 'open' | 'partially_paid' | 'settled' | 'cancell
 export interface Expectation {
   readonly id: string
   readonly tenantId: string
+  /** Store-assigned creation order, for paging. */
+  readonly seq: number
   /** Your reference for it (an invoice number, say). Unique per tenant. */
   readonly reference: string
   /** The account the money should arrive at (or leave from). */
@@ -239,6 +241,8 @@ export type Json = string | number | boolean | null | readonly Json[] | { readon
 export interface ExceptionRecord {
   readonly id: string
   readonly tenantId: string
+  /** Store-assigned opening order, for paging. */
+  readonly seq: number
   readonly code: ExceptionCode
   readonly status: ExceptionStatus
   /** At least one of movementId, expectationId and account is set. */

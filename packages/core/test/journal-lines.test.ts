@@ -70,6 +70,7 @@ let ex = 0
 const exception = (code: ExceptionCode, amount: Money | null = null): ExceptionRecord => ({
   id: `x${++ex}`,
   tenantId: 't',
+  seq: ex,
   code,
   status: 'open',
   movementId: 'm1',

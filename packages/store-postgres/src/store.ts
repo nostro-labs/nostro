@@ -156,6 +156,7 @@ class PgReader implements StoreReader {
       .add((p) => `direction = ${p}`, q.direction)
       .add((p) => `status = ANY(${p})`, q.status === undefined ? undefined : [...q.status])
       .add((p) => `muxed_id = ${p}`, q.muxedId === undefined ? undefined : q.muxedId.toString())
+      .add((p) => `seq > ${p}`, q.afterSeq)
     const sql = `SELECT * FROM ${this.s}.expectations${w} ORDER BY seq${w.limit(q.limit)}`
     return (await this.run<ExpectationRow>(sql, w.params)).map(toExpectation)
   }
@@ -185,6 +186,7 @@ class PgReader implements StoreReader {
       .add((p) => `code = ${p}`, q.code)
       .add((p) => `movement_id = ${p}`, q.movementId)
       .add((p) => `expectation_id = ${p}`, q.expectationId)
+      .add((p) => `seq > ${p}`, q.afterSeq)
     const sql = `SELECT * FROM ${this.s}.exceptions${w} ORDER BY seq${w.limit(q.limit)}`
     return (await this.run<ExceptionRow>(sql, w.params)).map(toException)
   }

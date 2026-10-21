@@ -43,6 +43,7 @@ function expectation(over: Partial<Expectation> = {}): Expectation {
   return {
     id: `e${n}`,
     tenantId: 't',
+    seq: n,
     reference: `INV-${String(n).padStart(5, '0')}`,
     account: ACCOUNT,
     direction: 'credit',
