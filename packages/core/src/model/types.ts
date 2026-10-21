@@ -64,6 +64,8 @@ export type Memo =
  */
 export type Disposition = 'pending' | 'allocated' | 'partial' | 'exception' | 'ignored'
 
+export const DISPOSITIONS: readonly Disposition[] = ['pending', 'allocated', 'partial', 'exception', 'ignored']
+
 /** Whether the enrichment feeds (memo, muxed id, op type) were stitched on. */
 export type Enrichment = 'complete' | 'missing'
 
@@ -123,6 +125,8 @@ export interface NewMovement {
 }
 
 export type ExpectationStatus = 'open' | 'partially_paid' | 'settled' | 'cancelled'
+
+export const EXPECTATION_STATUSES: readonly ExpectationStatus[] = ['open', 'partially_paid', 'settled', 'cancelled']
 
 export interface Expectation {
   readonly id: string

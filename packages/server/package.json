@@ -1,0 +1,47 @@
+{
+  "name": "nostro-server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "An HTTP API over a nostro store: movements, expectations, exceptions and the journal.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nostro-labs/nostro.git",
+    "directory": "packages/server"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run --coverage"
+  },
+  "dependencies": {
+    "fastify": "5.12.5"
+  },
+  "peerDependencies": {
+    "nostro": "workspace:*"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
+    "nostro": "workspace:*",
+    "nostro-testkit": "workspace:*",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

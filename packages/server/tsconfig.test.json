@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true,
+    // Typecheck against core's source, the same module the tests run against.
+    "paths": {
+      "nostro": ["../core/src/index.ts"],
+      "nostro-testkit": ["../testkit/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}

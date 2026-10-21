@@ -1,0 +1,45 @@
+# nostro-server
+
+An HTTP API over a [nostro](https://github.com/nostro-labs/nostro) store: list movements,
+expectations, exceptions and journal entries, record expectations, and download the journal as CSV.
+It holds no reconciliation logic of its own; run `sync()` and `reconcile()` (or `nostro sync` and
+`nostro reconcile`) beside it.
+
+```ts
+import { SqliteStore } from 'nostro-store-sqlite'
+import { apiKeys, createServer } from 'nostro-server'
+
+const store = new SqliteStore({ filename: './nostro.db' })
+const app = createServer({ store, authenticate: apiKeys({ [process.env.ACME_API_KEY!]: 'acme' }) })
+await app.listen({ port: 8080 })
+```
+
+| Route | |
+|---|---|
+| `GET /v1/health` | `{ "ok": true }`; the only route that needs no key |
+| `GET /v1/movements` | `?disposition=`, `?account=` |
+| `GET /v1/movements/{id}` | the movement, its allocations, exceptions and journal entries |
+| `GET /v1/expectations` | `?status=open,partially_paid`, `?account=` |
+| `GET /v1/expectations/{id}` | the expectation and its allocations |
+| `POST /v1/expectations` | record one; `201` with `Location`, `409` if the reference is taken |
+| `GET /v1/exceptions` | `?status=`, `?code=` |
+| `GET /v1/journal` | `?from=`, `?to=` (ISO 8601, effective dates) |
+| `GET /v1/journal.csv` | the journal as CSV, streamed |
+
+- **Authentication.** `Authorization: Bearer <key>`. The key decides the tenant, so a caller can never
+  ask for another tenant's records. `apiKeys()` keeps only SHA-256 digests of the keys, compares in
+  constant time, and refuses keys shorter than 32 characters (`openssl rand -hex 32`).
+- **Paging.** Lists return `{ "data": [...], "next": <seq> | null }`; pass `next` back as `?after=`.
+  `?limit=` is 1 to 500 (default 100).
+- **Amounts** are exact decimal strings beside their asset (`"amount": "25.0000000", "asset":
+  "native"`), never JSON numbers, in both directions: a request body containing any number is
+  refused, because by the time it is parsed it may already have been rounded.
+- **Errors** are RFC 9457 problem details (`application/problem+json`) with a stable `code`:
+  `unauthorized`, `invalid_request` (400), `not_found`, `reference_taken` (409),
+  `invalid_expectation` (422, e.g. an amount with more decimals than the asset has), `internal`. A
+  query parameter or body field the API does not know is a 400, not silently ignored. A 500 says
+  nothing about the server's insides.
+
+Not here yet: webhooks for decisions, an OpenAPI document, and a container image.
+
+**Status:** pre-alpha, not yet published.
