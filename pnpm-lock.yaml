@@ -23,6 +23,9 @@ importers:
       nostro:
         specifier: workspace:*
         version: link:../core
+      nostro-server:
+        specifier: workspace:*
+        version: link:../server
       nostro-store-postgres:
         specifier: workspace:*
         version: link:../store-postgres

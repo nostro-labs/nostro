@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "nostro": "workspace:*",
+    "nostro-server": "workspace:*",
     "nostro-store-postgres": "workspace:*",
     "nostro-store-sqlite": "workspace:*"
   },

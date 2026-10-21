@@ -25,6 +25,12 @@ nostro export --output journal.csv                   # the journal, a row per li
 | `post` | Posts to the journal any decision it does not reflect yet, such as one made outside `reconcile`. Idempotent. |
 | `doctor` | Checks invariants I1 and I3 over every record, and with `--attest` I2: each account's recorded movements against its on-chain balance in every asset. Exits 1 if any does not hold. |
 | `export` | Writes the journal as CSV (RFC 4180), with a date range; to stdout, or to `--output`, which it will not overwrite without `--force` and never leaves half-written. |
+| `serve` | Runs the HTTP API ([nostro-server](../server/README.md)), and with `--account`s to watch, syncs and reconciles them every `--interval` seconds. Stops cleanly on Ctrl-C or SIGTERM. |
+
+`serve` reads API keys as `tenant:key` pairs from `NOSTRO_API_KEYS` (comma-separated) or
+`--keys-file` (one per line), never from the command line, where `ps` would show them. It listens on
+127.0.0.1:8080 unless told otherwise (`--host`, `--port`, or `NOSTRO_HOST`, `NOSTRO_PORT`). The
+worker syncs one tenant's accounts (`--tenant`); the API serves every tenant that has a key.
 
 Resolving exceptions from the command line is not there yet: resolving one by hand can leave its
 movement's disposition unsupported (see `docs/invariants.md`), so it needs a workflow that

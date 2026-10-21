@@ -1,32 +1,9 @@
-import type { AccountSyncReport, MovementSource } from 'nostro'
-import { sync as syncSource } from 'nostro'
 import { COMMON, NETWORK, accounts, flag, network, positionals, tenant } from '../args.js'
 import type { Command } from '../command.js'
 import { COMMON_HELP, NETWORK_HELP, horizonClient, movementSources, withStore } from '../command.js'
 import { json, table, write } from '../io.js'
-
-interface Progress {
-  readonly account: string
-  readonly source: string
-  inserted: number
-  duplicates: number
-  conflicts: number
-  cursor: string | null
-  caughtUp: boolean
-  /** Another process advanced the cursor first; it is syncing this stream. */
-  contended: boolean
-  error: Error | null
-}
-
-function add(p: Progress, r: AccountSyncReport): void {
-  p.inserted += r.inserted
-  p.duplicates += r.duplicates
-  p.conflicts += r.conflicts
-  p.cursor = r.cursor
-  p.caughtUp = r.caughtUp
-  p.contended = r.contended
-  p.error = r.error
-}
+import type { StreamProgress } from '../work.js'
+import { syncAll } from '../work.js'
 
 export const sync: Command = {
   name: 'sync',
@@ -52,37 +29,19 @@ ${COMMON_HELP}`,
     const progress = io.stderr.isTTY === true && !asJson
 
     const client = horizonClient(net, io)
-    const results: Progress[] = []
-    await withStore(args, io, async (store) => {
-      for (const source of movementSources(client, net)) {
-        const rows = list.map((account) => ({
-          account,
-          source: source.name,
-          inserted: 0,
-          duplicates: 0,
-          conflicts: 0,
-          cursor: null,
-          caughtUp: false,
-          contended: false,
-          error: null,
-        }))
-        results.push(...rows)
-        await catchUp(source, rows)
-      }
-
-      async function catchUp(source: MovementSource, rows: Progress[]): Promise<void> {
-        let remaining = rows
-        while (remaining.length > 0) {
-          const report = await syncSource({ store, source, tenantId, accounts: remaining.map((r) => r.account) })
-          report.accounts.forEach((r, i) => add(remaining[i]!, r))
-          if (progress) {
-            for (const r of remaining) await write(io.stderr, `${source.name} ${r.account}: ${r.inserted} new so far\n`)
-          }
-          if (once) return
-          remaining = remaining.filter((r) => !r.caughtUp && !r.contended && r.error === null)
-        }
-      }
-    })
+    const results = await withStore(args, io, (store) =>
+      syncAll({
+        store,
+        tenantId,
+        accounts: list,
+        sources: movementSources(client, net),
+        once,
+        onRound: async (source, streams) => {
+          if (!progress) return
+          for (const r of streams) await write(io.stderr, `${source.name} ${r.account}: ${r.inserted} new so far\n`)
+        },
+      }),
+    )
 
     const failed = results.some((r) => r.error !== null)
     if (asJson) {
@@ -97,7 +56,7 @@ ${COMMON_HELP}`,
       return failed ? 1 : 0
     }
 
-    const state = (r: Progress) =>
+    const state = (r: StreamProgress) =>
       r.error !== null ? `failed: ${r.error.message}` : r.contended ? 'another sync is running' : r.caughtUp ? 'caught up' : 'more to read'
     await write(
       io.stdout,

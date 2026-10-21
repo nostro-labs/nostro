@@ -18,6 +18,8 @@ export interface Io {
   readonly cwd: string
   /** Used for every Horizon request. Defaults to the global `fetch`. */
   readonly fetch?: typeof globalThis.fetch
+  /** Ends a long-running command, such as `serve`, cleanly. `bin.ts` fires it on SIGINT and SIGTERM. */
+  readonly signal?: AbortSignal
 }
 
 /** Write a chunk, waiting for the stream to drain if it asks. */
