@@ -1,9 +1,9 @@
 import type { ExceptionCode, ExceptionStatus } from 'nostro'
-import { EXCEPTION_CODES } from 'nostro'
+import { EXCEPTION_CODES, exceptionJson } from 'nostro'
 import { COMMON, UsageError, flag, integer, positionals, string, tenant } from '../args.js'
 import type { Command } from '../command.js'
 import { COMMON_HELP, withStore } from '../command.js'
-import { assetLabel, exceptionJson, when } from '../format.js'
+import { assetLabel, when } from '../format.js'
 import { json, table, write } from '../io.js'
 
 const STATUSES = ['open', 'resolved', 'dismissed', 'all'] as const

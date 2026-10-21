@@ -3,7 +3,7 @@ import { isAccountId, sumAmounts } from 'nostro'
 import { COMMON, UsageError, flag, integer, positionals, string, tenant } from '../args.js'
 import type { Command } from '../command.js'
 import { COMMON_HELP, withStore } from '../command.js'
-import { assetLabel, expectationJson, when } from '../format.js'
+import { assetLabel, expectationWithPaid, when } from '../format.js'
 import { json, table, write } from '../io.js'
 
 const STATUSES: readonly ExpectationStatus[] = ['open', 'partially_paid', 'settled', 'cancelled']
@@ -47,7 +47,7 @@ ${COMMON_HELP}`,
     })
 
     if (flag(args, 'json')) {
-      await write(io.stdout, json(rows.map(({ e, paid }) => expectationJson(e, paid))))
+      await write(io.stdout, json(rows.map(({ e, paid }) => expectationWithPaid(e, paid))))
       return 0
     }
     if (rows.length === 0) {

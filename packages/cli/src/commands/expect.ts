@@ -4,7 +4,7 @@ import type { Args } from '../args.js'
 import { COMMON, CliError, UsageError, date, flag, positionals, string, strings, tenant } from '../args.js'
 import type { Command } from '../command.js'
 import { COMMON_HELP, withStore } from '../command.js'
-import { expectationJson, money } from '../format.js'
+import { expectationWithPaid, money } from '../format.js'
 import { clean, json, write } from '../io.js'
 
 const UINT64 = /^\d{1,20}$/
@@ -132,7 +132,7 @@ Dates are 2026-10-31 (midnight UTC) or an instant with its offset, 2026-10-31T17
     )
 
     if (flag(args, 'json')) {
-      await write(io.stdout, json(expectationJson(recorded, Money.zero(recorded.amount.asset, recorded.amount.decimals))))
+      await write(io.stdout, json(expectationWithPaid(recorded, Money.zero(recorded.amount.asset, recorded.amount.decimals))))
     } else {
       const way = recorded.direction === 'credit' ? 'owed to' : 'to pay from'
       await write(io.stdout, `Recorded ${clean(recorded.reference)}: ${money(recorded.amount)} ${way} ${recorded.account}.\n`)
