@@ -29,6 +29,15 @@ const LINE_ROLES = list([
   'uncategorized_expense',
 ])
 const ENTRY_KINDS = list(['initial', 'reclass', 'correction'])
+const EVENT_TYPES = [
+  'movement.decided',
+  'expectation.partially_paid',
+  'expectation.settled',
+  'expectation.cancelled',
+  'exception.opened',
+  'exception.resolved',
+  'exception.dismissed',
+]
 const appendOnly = (table: string) => `
     CREATE TRIGGER ${table}_no_update BEFORE UPDATE ON ${table}
       BEGIN SELECT RAISE(ABORT, 'the journal is append-only'); END;
@@ -209,5 +218,23 @@ export const MIGRATIONS: readonly string[] = [
   // index, and posting a large backlog becomes quadratic.
   `
     CREATE INDEX journal_entries_movement ON journal_entries (tenant_id, movement_id, seq);
+  `,
+  // 4: the event log (outbox), written in the same transaction as each
+  // decision. Append-only; consumers keep their place in cursors.
+  `
+    CREATE TABLE events (
+      seq        INTEGER PRIMARY KEY AUTOINCREMENT,
+      id         TEXT NOT NULL UNIQUE,
+      tenant_id  TEXT NOT NULL,
+      type       TEXT NOT NULL CHECK (type IN (${list(EVENT_TYPES)})),
+      subject_id TEXT NOT NULL,
+      payload    TEXT NOT NULL CHECK (json_valid(payload)),
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX events_tenant ON events (tenant_id, seq);
+    CREATE TRIGGER events_no_update BEFORE UPDATE ON events
+      BEGIN SELECT RAISE(ABORT, 'the event log is append-only'); END;
+    CREATE TRIGGER events_no_delete BEFORE DELETE ON events
+      BEGIN SELECT RAISE(ABORT, 'the event log is append-only'); END;
   `,
 ]

@@ -30,6 +30,7 @@ import type {
   NewMovement,
 } from '../model/index.js'
 import type { AssetId } from '../money/index.js'
+import type { EventQuery, OutboxEvent } from './events.js'
 
 export interface MovementQuery {
   readonly tenantId: string
@@ -104,6 +105,8 @@ export interface StoreReader extends JournalReader {
   getException(tenantId: string, id: string): Promise<ExceptionRecord | null>
   listExceptions(query: ExceptionQuery): Promise<ExceptionRecord[]>
   getCursor(key: CursorKey): Promise<string | null>
+  /** The event log, in `seq` order. Events are written by the store itself; see `events.ts`. */
+  listEvents(query: EventQuery): Promise<OutboxEvent[]>
 }
 
 /**
@@ -125,7 +128,8 @@ export interface StoreTx extends StoreReader, JournalTx {
   insertMovements(batch: readonly NewMovement[]): Promise<InsertMovementsResult>
 
   /**
-   * Move a movement to a new disposition. The store refuses a disposition the
+   * Move a movement to a new disposition, writing a `movement.decided` event
+   * if it changed. The store refuses a disposition the
    * movement's allocations and exceptions do not support:
    * - `allocated` needs allocations summing to the full amount
    * - `partial` needs some allocation and an open exception on the movement
@@ -144,7 +148,10 @@ export interface StoreTx extends StoreReader, JournalTx {
   /** Fails with `expectation_reference_unique` if the reference is taken in this tenant. */
   insertExpectation(expectation: NewExpectation): Promise<Expectation>
 
-  /** Fails with `expectation_has_allocations` once anything has been allocated to it. */
+  /**
+   * Fails with `expectation_has_allocations` once anything has been allocated
+   * to it. Writes an `expectation.cancelled` event.
+   */
   cancelExpectation(tenantId: string, id: string, reason: string): Promise<Expectation>
 
   /**
@@ -154,10 +161,14 @@ export interface StoreTx extends StoreReader, JournalTx {
    * cancelled expectation, or anything that would over-allocate either side.
    * The over-allocation checks see every committed allocation, so two
    * concurrent transactions cannot both spend the same remaining amount.
+   * Writes an `expectation.partially_paid` or `expectation.settled` event
+   * when the status changes.
    */
   allocate(allocation: NewAllocation): Promise<Allocation>
 
+  /** Writes an `exception.opened` event. */
   openException(exception: NewException): Promise<ExceptionRecord>
+  /** Writes an `exception.resolved` or `exception.dismissed` event. */
   resolveException(tenantId: string, id: string, resolution: Resolution): Promise<ExceptionRecord>
 }
 

@@ -8,6 +8,7 @@
 import { randomUUID } from 'node:crypto'
 import pg from 'pg'
 import { afterAll, describe, expect, it } from 'vitest'
+import type { StoreTx } from 'nostro'
 import { Money, NATIVE } from 'nostro'
 import { describeStoreConformance } from 'nostro-testkit'
 import { PostgresStore } from '../src/index.js'
@@ -47,19 +48,47 @@ if (pool === undefined) {
       await Promise.all([1, 2, 3].map(() => freshStore({ schema })))
       await freshStore({ schema })
       const { rows } = await pool.query(`SELECT version FROM "${schema}".migrations ORDER BY version`)
-      expect(rows.map((r) => r.version)).toEqual([1, 2])
+      expect(rows.map((r) => r.version)).toEqual([1, 2, 3])
     })
 
     it('reports the schema version without changing it', async () => {
       const schema = `nostro_test_${randomUUID().replaceAll('-', '').slice(0, 16)}`
       schemas.push(schema)
       const store = new PostgresStore({ pool: pool!, schema })
-      expect(await store.schemaVersion()).toEqual({ current: 0, latest: 2 })
-      expect(await store.schemaVersion()).toEqual({ current: 0, latest: 2 })
+      expect(await store.schemaVersion()).toEqual({ current: 0, latest: 3 })
+      expect(await store.schemaVersion()).toEqual({ current: 0, latest: 3 })
       await store.migrate()
-      expect(await store.schemaVersion()).toEqual({ current: 2, latest: 2 })
-      await pool.query(`DELETE FROM "${schema}".migrations WHERE version = 2`)
-      expect(await store.schemaVersion()).toEqual({ current: 1, latest: 2 })
+      expect(await store.schemaVersion()).toEqual({ current: 3, latest: 3 })
+      await pool.query(`DELETE FROM "${schema}".migrations WHERE version = 3`)
+      expect(await store.schemaVersion()).toEqual({ current: 2, latest: 3 })
+    })
+
+    it('commits events in seq order, so a reader after a seq can never miss one', async () => {
+      const store = await freshStore()
+      const open = (tenantId: string, detail: string) => (tx: StoreTx) =>
+        tx.openException({ tenantId, code: 'MEMO_MISSING', account: `G${'A'.repeat(55)}`, detail })
+      let release!: () => void
+      const held = new Promise<void>((r) => (release = r))
+      let written!: () => void
+      const emitted = new Promise<void>((r) => (written = r))
+      const slow = store.transaction(async (tx) => {
+        await open('t', 'first')(tx)
+        written()
+        await held
+      })
+      await emitted
+      let fastDone = false
+      const fast = store.transaction(open('t', 'second')).then(() => (fastDone = true))
+      // Another tenant's events do not wait.
+      await store.transaction(open('u', 'elsewhere'))
+      await new Promise((r) => setTimeout(r, 200))
+      expect(fastDone).toBe(false)
+      expect(await store.listEvents({ tenantId: 't' })).toEqual([])
+      release()
+      await Promise.all([slow, fast])
+      const events = await store.listEvents({ tenantId: 't' })
+      expect(events.map((e) => (e.payload as { exception: { detail: string } }).exception.detail)).toEqual(['first', 'second'])
+      expect(events[0]!.seq).toBeLessThan(events[1]!.seq)
     })
 
     it('keeps amounts exact beyond 64 bits', async () => {
@@ -197,17 +226,18 @@ if (pool === undefined) {
         expect(await store.listJournalEntries({ tenantId: 't' })).toHaveLength(1)
       })
 
-      it('upgrades a version 1 database with data to version 2', async () => {
+      it('upgrades a version 1 database with data to the latest version', async () => {
         const { store, s, movement } = await withMovement()
         // Put the schema back to version 1, keeping its data.
-        await pool.query(`DROP TABLE ${s}.journal_lines, ${s}.journal_entries`)
+        await pool.query(`DROP TABLE ${s}.journal_lines, ${s}.journal_entries, ${s}.events`)
         await pool.query(
-          `DROP FUNCTION ${s}.journal_entry_balanced, ${s}.journal_line_balanced, ${s}.journal_check_entry, ${s}.journal_append_only`,
+          `DROP FUNCTION ${s}.journal_entry_balanced, ${s}.journal_line_balanced, ${s}.journal_check_entry, ${s}.journal_append_only, ${s}.events_append_only`,
         )
-        await pool.query(`DELETE FROM ${s}.migrations WHERE version = 2`)
+        await pool.query(`DELETE FROM ${s}.migrations WHERE version > 1`)
         await store.migrate()
         expect((await store.getMovement('t', movement.id))!.amount.toString()).toBe('10.0000000')
         expect(await store.listJournalEntries({ tenantId: 't' })).toEqual([])
+        expect(await store.listEvents({ tenantId: 't' })).toEqual([])
       })
     })
 

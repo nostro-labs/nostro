@@ -20,6 +20,7 @@ import type {
   AllocationQuery,
   CursorKey,
   Disposition,
+  EventQuery,
   ExceptionQuery,
   ExceptionRecord,
   Expectation,
@@ -36,6 +37,8 @@ import type {
   NewExpectation,
   NewJournalEntry,
   NewMovement,
+  NewOutboxEvent,
+  OutboxEvent,
   Resolution,
   SchemaVersion,
   StoreReader,
@@ -56,17 +59,21 @@ import {
   checkDisposition,
   checkJournalEntry,
   checkResolution,
+  exceptionChanged,
+  expectationChanged,
+  movementDecided,
   sameFacts,
 } from 'nostro'
 import type {
   AllocationRow,
+  EventRow,
   ExceptionRow,
   ExpectationRow,
   JournalEntryRow,
   JournalLineRow,
   MovementRow,
 } from './rows.js'
-import { memoColumns, toAllocation, toException, toExpectation, toJournalEntry, toMovement } from './rows.js'
+import { memoColumns, toAllocation, toEvent, toException, toExpectation, toJournalEntry, toMovement } from './rows.js'
 import { MIGRATIONS, quoteSchema } from './schema.js'
 
 export interface PostgresStoreOptions {
@@ -212,6 +219,11 @@ class PgReader implements StoreReader {
     return entries.map((e) => toJournalEntry(e, byEntry.get(e.id) ?? []))
   }
 
+  async listEvents(q: EventQuery): Promise<OutboxEvent[]> {
+    const w = new Where().add((p) => `tenant_id = ${p}`, q.tenantId).add((p) => `seq > ${p}`, q.afterSeq)
+    return (await this.run<EventRow>(`SELECT * FROM ${this.s}.events${w} ORDER BY seq${w.limit(q.limit)}`, w.params)).map(toEvent)
+  }
+
   async getCursor(k: CursorKey): Promise<string | null> {
     const [row] = await this.run<{ value: string | null }>(
       `SELECT value FROM ${this.s}.cursors WHERE tenant_id = $1 AND network = $2 AND source = $3 AND account = $4`,
@@ -244,6 +256,19 @@ class PgTx extends PgReader implements StoreTx {
 
   close(): void {
     this.open = false
+  }
+
+  /**
+   * Append to the event log, in this transaction. The per-tenant lock is
+   * held until commit, so a later seq cannot commit before an earlier one.
+   */
+  private async emit(event: NewOutboxEvent | null): Promise<void> {
+    if (event === null) return
+    await this.run('SELECT pg_advisory_xact_lock(hashtext($1))', [`nostro:events:${this.s}:${event.tenantId}`])
+    await this.run(
+      `INSERT INTO ${this.s}.events (id, tenant_id, type, subject_id, payload, created_at) VALUES ($1, $2, $3, $4, $5, $6)`,
+      [this.ids(), event.tenantId, event.type, event.subjectId, JSON.stringify(event.payload), this.now()],
+    )
   }
 
   private async lockMovement(tenantId: string, id: string): Promise<Movement> {
@@ -368,7 +393,9 @@ class PgTx extends PgReader implements StoreTx {
        WHERE tenant_id = $1 AND id = $2 RETURNING *`,
       [tenantId, movementId, disposition, disposition === 'ignored' ? reason! : null],
     )
-    return toMovement(row!)
+    const next = toMovement(row!)
+    if (m.disposition !== disposition) await this.emit(movementDecided(next, m.disposition, allocations))
+    return next
   }
 
   async insertExpectation(n: NewExpectation): Promise<Expectation> {
@@ -431,7 +458,9 @@ class PgTx extends PgReader implements StoreTx {
        WHERE tenant_id = $1 AND id = $2 RETURNING *`,
       [tenantId, id, reason, this.now()],
     )
-    return toExpectation(row!)
+    const next = toExpectation(row!)
+    await this.emit(expectationChanged(next, null))
+    return next
   }
 
   async allocate(n: NewAllocation): Promise<Allocation> {
@@ -464,12 +493,13 @@ class PgTx extends PgReader implements StoreTx {
         now,
       ],
     )
-    await this.run(`UPDATE ${this.s}.expectations SET status = $2, updated_at = $3 WHERE id = $1`, [
-      e.id,
-      status,
-      now,
-    ])
-    return toAllocation(row!)
+    const [updated] = await this.run<ExpectationRow>(
+      `UPDATE ${this.s}.expectations SET status = $2, updated_at = $3 WHERE id = $1 RETURNING *`,
+      [e.id, status, now],
+    )
+    const allocation = toAllocation(row!)
+    if (status !== e.status) await this.emit(expectationChanged(toExpectation(updated!), allocation))
+    return allocation
   }
 
   async postJournalEntry(n: NewJournalEntry): Promise<JournalEntry> {
@@ -547,7 +577,9 @@ class PgTx extends PgReader implements StoreTx {
         this.now(),
       ],
     )
-    return toException(row!)
+    const record = toException(row!)
+    await this.emit(exceptionChanged(record))
+    return record
   }
 
   async resolveException(tenantId: string, id: string, resolution: Resolution): Promise<ExceptionRecord> {
@@ -562,7 +594,9 @@ class PgTx extends PgReader implements StoreTx {
        WHERE tenant_id = $1 AND id = $2 RETURNING *`,
       [tenantId, id, resolution.status, this.now(), resolution.note],
     )
-    return toException(row!)
+    const next = toException(row!)
+    await this.emit(exceptionChanged(next))
+    return next
   }
 }
 

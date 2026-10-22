@@ -40,6 +40,15 @@ const LINE_ROLES = list([
   'uncategorized_expense',
 ])
 const ENTRY_KINDS = list(['initial', 'reclass', 'correction'])
+const EVENT_TYPES = list([
+  'movement.decided',
+  'expectation.partially_paid',
+  'expectation.settled',
+  'expectation.cancelled',
+  'exception.opened',
+  'exception.resolved',
+  'exception.dismissed',
+])
 const EXCEPTION_CODES = list([
   'UNMATCHED_NO_CANDIDATE',
   'AMBIGUOUS_MATCH',
@@ -241,5 +250,28 @@ export const MIGRATIONS: readonly ((s: string) => string)[] = [
       FOR EACH STATEMENT EXECUTE FUNCTION ${s}.journal_append_only();
     CREATE TRIGGER journal_lines_no_truncate BEFORE TRUNCATE ON ${s}.journal_lines
       FOR EACH STATEMENT EXECUTE FUNCTION ${s}.journal_append_only();
+  `,
+  // 3: the event log (outbox), written in the same transaction as each
+  // decision. The payload is JSON kept as text: jsonb cannot hold the NUL a
+  // text memo may carry. Writers take a per-tenant lock before inserting
+  // (see PgTx.emit), so events commit in seq order and a consumer reading
+  // after a seq can never skip one that commits late.
+  (s) => `
+    CREATE TABLE ${s}.events (
+      seq        bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
+      id         text PRIMARY KEY,
+      tenant_id  text NOT NULL,
+      type       text NOT NULL CHECK (type IN (${EVENT_TYPES})),
+      subject_id text NOT NULL,
+      payload    text NOT NULL,
+      created_at timestamptz NOT NULL
+    );
+    CREATE INDEX events_tenant ON ${s}.events (tenant_id, seq);
+    CREATE FUNCTION ${s}.events_append_only() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN RAISE EXCEPTION 'the event log is append-only' USING ERRCODE = 'check_violation'; END $$;
+    CREATE TRIGGER events_append_only BEFORE UPDATE OR DELETE ON ${s}.events
+      FOR EACH ROW EXECUTE FUNCTION ${s}.events_append_only();
+    CREATE TRIGGER events_no_truncate BEFORE TRUNCATE ON ${s}.events
+      FOR EACH STATEMENT EXECUTE FUNCTION ${s}.events_append_only();
   `,
 ]

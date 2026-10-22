@@ -574,6 +574,92 @@ export function describeStoreConformance(name: string, makeStore: () => Store | 
       })
     })
 
+    describe('the event log', () => {
+      const events = async (tenantId = T) => store.listEvents({ tenantId })
+      type Data = Record<string, Record<string, unknown> | null | string | unknown[]>
+
+      it('writes one event per decision, in order, with the record as it was', async () => {
+        const e = await expect10()
+        const m1 = await record({ amount: usdc('4') })
+        const m2 = await record({ amount: usdc('6') })
+        await store.transaction(async (tx) => {
+          await tx.allocate({ tenantId: T, movementId: m1.id, expectationId: e.id, amount: usdc('4'), strategy: 'memo_text', score: 0.85 })
+          await tx.setDisposition(T, m1.id, 'allocated')
+        })
+        await store.transaction(async (tx) => {
+          await tx.allocate({ tenantId: T, movementId: m2.id, expectationId: e.id, amount: usdc('6'), strategy: 'memo_text' })
+          await tx.setDisposition(T, m2.id, 'allocated')
+        })
+        const listed = await events()
+        expect(listed.map((x) => [x.type, x.subjectId])).toEqual([
+          ['expectation.partially_paid', e.id],
+          ['movement.decided', m1.id],
+          ['expectation.settled', e.id],
+          ['movement.decided', m2.id],
+        ])
+        expect(listed.map((x) => x.seq)).toEqual([...listed.map((x) => x.seq)].sort((a, b) => a - b))
+        expect(new Set(listed.map((x) => x.id)).size).toBe(4)
+        expect(listed.every((x) => x.tenantId === T && x.createdAt instanceof Date)).toBe(true)
+
+        const paid = listed[0]!.payload as Data
+        expect(paid.expectation).toMatchObject({ id: e.id, status: 'partially_paid', amount: '10.0000000', asset: USDC })
+        expect(paid.allocation).toMatchObject({ movementId: m1.id, amount: '4.0000000', strategy: 'memo_text', score: 0.85 })
+        const decided = listed[1]!.payload as Data
+        expect(decided.previous).toBe('pending')
+        expect(decided.movement).toMatchObject({ id: m1.id, disposition: 'allocated', amount: '4.0000000' })
+        expect(decided.allocations).toEqual([expect.objectContaining({ expectationId: e.id, amount: '4.0000000' })])
+      })
+
+      it('writes nothing for a decision that rolled back, or that changed nothing', async () => {
+        const m = await record()
+        await expect(
+          store.transaction(async (tx) => {
+            await tx.openException({ tenantId: T, code: 'MEMO_MISSING', movementId: m.id, detail: 'x' })
+            await tx.setDisposition(T, m.id, 'exception')
+            throw new Error('changed my mind')
+          }),
+        ).rejects.toThrow('changed my mind')
+        expect(await events()).toEqual([])
+
+        await store.transaction((tx) => tx.setDisposition(T, m.id, 'ignored', 'test payment'))
+        await store.transaction((tx) => tx.setDisposition(T, m.id, 'ignored', 'still a test payment'))
+        expect((await events()).map((x) => x.type)).toEqual(['movement.decided'])
+      })
+
+      it('records exceptions opening and closing, and cancellations', async () => {
+        const m = await record()
+        const a = await store.transaction((tx) => tx.openException({ tenantId: T, code: 'AMBIGUOUS_MATCH', movementId: m.id, detail: 'two' }))
+        const b = await store.transaction((tx) => tx.openException({ tenantId: T, code: 'MEMO_MISSING', movementId: m.id, detail: 'none' }))
+        await store.transaction((tx) => tx.resolveException(T, a.id, { status: 'resolved', note: 'INV-2' }))
+        await store.transaction((tx) => tx.resolveException(T, b.id, { status: 'dismissed', note: 'noise' }))
+        const e = await expect10()
+        await store.transaction((tx) => tx.cancelExpectation(T, e.id, 'customer withdrew'))
+        const listed = await events()
+        expect(listed.map((x) => [x.type, x.subjectId])).toEqual([
+          ['exception.opened', a.id],
+          ['exception.opened', b.id],
+          ['exception.resolved', a.id],
+          ['exception.dismissed', b.id],
+          ['expectation.cancelled', e.id],
+        ])
+        expect((listed[2]!.payload as Data).exception).toMatchObject({ status: 'resolved', resolutionNote: 'INV-2' })
+        expect((listed[4]!.payload as Data).allocation).toBeNull()
+      })
+
+      it('pages within a tenant', async () => {
+        const m = await record()
+        for (const code of ['MEMO_MISSING', 'MEMO_MALFORMED', 'WRONG_ASSET'] as const) {
+          await store.transaction((tx) => tx.openException({ tenantId: T, code, movementId: m.id, detail: code }))
+        }
+        await store.transaction((tx) => tx.openException({ tenantId: T2, code: 'MEMO_MISSING', account: ACCOUNT, detail: 'other' }))
+        const all = await events()
+        expect(all).toHaveLength(3)
+        expect(await events(T2)).toHaveLength(1)
+        expect((await store.listEvents({ tenantId: T, afterSeq: all[0]!.seq, limit: 1 })).map((x) => x.id)).toEqual([all[1]!.id])
+        expect(await store.listEvents({ tenantId: T, afterSeq: all[2]!.seq })).toEqual([])
+      })
+    })
+
     it('validates write arguments that are not records', async () => {
       const e = await expect10()
       const m = await record()
@@ -622,6 +708,14 @@ export function describeStoreConformance(name: string, makeStore: () => Store | 
         .flatMap((e) => e.lines)
         .reduce((sum, l) => sum + (l.side === 'debit' ? l.amount.raw : -l.amount.raw), 0n)
       expect(net).toBe(0n)
+      // And exactly one event per decision: six movements, one partial payment, one settlement, one duplicate.
+      const events = await store.listEvents({ tenantId: T })
+      const decided = events.filter((e) => e.type === 'movement.decided').map((e) => e.subjectId)
+      expect(decided).toHaveLength(6)
+      expect(new Set(decided).size).toBe(6)
+      expect(events.filter((e) => e.type === 'expectation.partially_paid')).toHaveLength(1)
+      expect(events.filter((e) => e.type === 'expectation.settled')).toHaveLength(1)
+      expect(events.filter((e) => e.type === 'exception.opened')).toHaveLength(1)
     })
 
     it('runs doctor() alongside reconcilers, and agrees with them once they finish', async () => {

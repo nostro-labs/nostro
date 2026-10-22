@@ -59,6 +59,8 @@ import {
   sameFacts,
 } from './rules.js'
 import { ConstraintError, NotFoundError, TransactionClosedError } from './store.js'
+import type { EventQuery, NewOutboxEvent, OutboxEvent } from './events.js'
+import { exceptionChanged, expectationChanged, movementDecided } from './events.js'
 
 export interface MemoryStoreOptions {
   /** Id generator. Defaults to `crypto.randomUUID()`; inject one for deterministic tests. */
@@ -80,6 +82,8 @@ interface State {
   readonly cursors: Map<string, string>
   journalSeq: number
   readonly journal: Map<string, JournalEntry>
+  eventSeq: number
+  readonly events: Map<string, OutboxEvent>
   /** Movement id → its entry ids in posting order. Arrays are replaced, never pushed to. */
   readonly journalByMovement: Map<string, readonly string[]>
 }
@@ -97,6 +101,8 @@ function emptyState(): State {
     journalSeq: 0,
     journal: new Map(),
     journalByMovement: new Map(),
+    eventSeq: 0,
+    events: new Map(),
   }
 }
 
@@ -114,6 +120,8 @@ function cloneState(s: State): State {
     journalSeq: s.journalSeq,
     journal: new Map(s.journal),
     journalByMovement: new Map(s.journalByMovement),
+    eventSeq: s.eventSeq,
+    events: new Map(s.events),
   }
 }
 
@@ -212,6 +220,18 @@ abstract class MemoryReader implements StoreReader {
     return out
   }
 
+  async listEvents(q: EventQuery): Promise<OutboxEvent[]> {
+    this.check()
+    const out: OutboxEvent[] = []
+    for (const e of this.snapshot().events.values()) {
+      if (e.tenantId !== q.tenantId) continue
+      if (q.afterSeq !== undefined && e.seq <= q.afterSeq) continue
+      out.push(e)
+      if (q.limit !== undefined && out.length >= q.limit) break
+    }
+    return out
+  }
+
   async listJournalEntries(q: JournalQuery): Promise<JournalEntry[]> {
     this.check()
     const state = this.snapshot()
@@ -273,6 +293,18 @@ class MemoryTx extends MemoryReader implements StoreTx {
 
   private allocationsOf(field: 'movementId' | 'expectationId', id: string): Allocation[] {
     return [...this.draft.allocations.values()].filter((a) => a[field] === id)
+  }
+
+  /** Append to the event log, in this transaction. */
+  private emit(event: NewOutboxEvent | null): void {
+    if (event === null) return
+    const record: OutboxEvent = Object.freeze({
+      id: this.ids(),
+      seq: ++this.draft.eventSeq,
+      ...event,
+      createdAt: this.now(),
+    })
+    this.draft.events.set(record.id, record)
   }
 
   async insertMovements(batch: readonly NewMovement[]): Promise<InsertMovementsResult> {
@@ -347,6 +379,7 @@ class MemoryTx extends MemoryReader implements StoreTx {
       ignoredReason: disposition === 'ignored' ? reason! : null,
     })
     this.draft.movements.set(next.id, next)
+    if (m.disposition !== disposition) this.emit(movementDecided(next, m.disposition, this.allocationsOf('movementId', m.id)))
     return next
   }
 
@@ -402,6 +435,7 @@ class MemoryTx extends MemoryReader implements StoreTx {
       updatedAt: this.now(),
     })
     this.draft.expectations.set(id, next)
+    this.emit(expectationChanged(next, null))
     return next
   }
 
@@ -431,14 +465,9 @@ class MemoryTx extends MemoryReader implements StoreTx {
       createdAt: now,
     })
     this.draft.allocations.set(allocation.id, allocation)
-    this.draft.expectations.set(
-      e.id,
-      Object.freeze({
-        ...e,
-        status,
-        updatedAt: now,
-      }),
-    )
+    const updated: Expectation = Object.freeze({ ...e, status, updatedAt: now })
+    this.draft.expectations.set(e.id, updated)
+    if (status !== e.status) this.emit(expectationChanged(updated, allocation))
     return allocation
   }
 
@@ -508,6 +537,7 @@ class MemoryTx extends MemoryReader implements StoreTx {
       resolutionNote: null,
     })
     this.draft.exceptions.set(record.id, record)
+    this.emit(exceptionChanged(record))
     return record
   }
 
@@ -523,6 +553,7 @@ class MemoryTx extends MemoryReader implements StoreTx {
       resolutionNote: resolution.note,
     })
     this.draft.exceptions.set(id, next)
+    this.emit(exceptionChanged(next))
     return next
   }
 }

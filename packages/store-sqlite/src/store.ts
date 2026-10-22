@@ -19,6 +19,7 @@ import type {
   AllocationQuery,
   CursorKey,
   Disposition,
+  EventQuery,
   ExceptionQuery,
   ExceptionRecord,
   Expectation,
@@ -37,6 +38,8 @@ import type {
   NewExpectation,
   NewJournalEntry,
   NewMovement,
+  NewOutboxEvent,
+  OutboxEvent,
   Resolution,
   SchemaVersion,
   StoreReader,
@@ -58,6 +61,9 @@ import {
   checkDisposition,
   checkJournalEntry,
   checkResolution,
+  exceptionChanged,
+  expectationChanged,
+  movementDecided,
   parseAsset,
   sameFacts,
 } from 'nostro'
@@ -198,6 +204,17 @@ const toException = (r: Row): ExceptionRecord =>
     resolutionNote: r.resolution_note as string | null,
   })
 
+const toEvent = (r: Row): OutboxEvent =>
+  Object.freeze({
+    id: r.id as string,
+    tenantId: r.tenant_id as string,
+    seq: r.seq as number,
+    type: r.type as OutboxEvent['type'],
+    subjectId: r.subject_id as string,
+    payload: JSON.parse(r.payload as string) as Json,
+    createdAt: date(r.created_at)!,
+  })
+
 const toJournalEntry = (r: Row, lines: readonly Row[]): JournalEntry =>
   Object.freeze({
     id: r.id as string,
@@ -326,6 +343,11 @@ class SqliteReader implements StoreReader {
     return this.all(`SELECT * FROM exceptions${w} ORDER BY seq${w.limit(q.limit)}`, w.params).map(toException)
   }
 
+  async listEvents(q: EventQuery): Promise<OutboxEvent[]> {
+    const w = new Where().add('tenant_id = ?', q.tenantId).add('seq > ?', q.afterSeq)
+    return this.all(`SELECT * FROM events${w} ORDER BY seq${w.limit(q.limit)}`, w.params).map(toEvent)
+  }
+
   async listJournalEntries(q: JournalQuery): Promise<JournalEntry[]> {
     const w = new Where()
       .add('tenant_id = ?', q.tenantId)
@@ -375,6 +397,19 @@ class SqliteTx extends SqliteReader implements StoreTx {
   private exec(sql: string, params: readonly Param[]): void {
     if (!this.open) throw new TransactionClosedError()
     statement(this.db, sql).run(...params)
+  }
+
+  /** Append to the event log, in this transaction. */
+  private emit(event: NewOutboxEvent | null): void {
+    if (event === null) return
+    this.exec('INSERT INTO events (id, tenant_id, type, subject_id, payload, created_at) VALUES (?, ?, ?, ?, ?, ?)', [
+      this.ids(),
+      event.tenantId,
+      event.type,
+      event.subjectId,
+      JSON.stringify(event.payload),
+      this.now().getTime(),
+    ])
   }
 
   private movement(tenantId: string, id: string): Movement {
@@ -469,13 +504,17 @@ class SqliteTx extends SqliteReader implements StoreTx {
       disposition,
       reason,
     )
-    return toMovement(
+    const next = toMovement(
       this.one('UPDATE movements SET disposition = ?, ignored_reason = ? WHERE id = ? RETURNING *', [
         disposition,
         disposition === 'ignored' ? reason! : null,
         m.id,
       ])!,
     )
+    if (m.disposition !== disposition) {
+      this.emit(movementDecided(next, m.disposition, await this.listAllocations({ tenantId, movementId })))
+    }
+    return next
   }
 
   async insertExpectation(n: NewExpectation): Promise<Expectation> {
@@ -524,12 +563,14 @@ class SqliteTx extends SqliteReader implements StoreTx {
   async cancelExpectation(tenantId: string, id: string, reason: string): Promise<Expectation> {
     const e = this.expectation(tenantId, id)
     checkCancel(e, reason)
-    return toExpectation(
+    const next = toExpectation(
       this.one(
         "UPDATE expectations SET status = 'cancelled', cancel_reason = ?, updated_at = ? WHERE id = ? RETURNING *",
         [reason, this.now().getTime(), e.id],
       )!,
     )
+    this.emit(expectationChanged(next, null))
+    return next
   }
 
   async allocate(n: NewAllocation): Promise<Allocation> {
@@ -561,8 +602,10 @@ class SqliteTx extends SqliteReader implements StoreTx {
         now,
       ],
     )!
-    this.exec('UPDATE expectations SET status = ?, updated_at = ? WHERE id = ?', [status, now, e.id])
-    return toAllocation(row)
+    const updated = this.one('UPDATE expectations SET status = ?, updated_at = ? WHERE id = ? RETURNING *', [status, now, e.id])!
+    const allocation = toAllocation(row)
+    if (status !== e.status) this.emit(expectationChanged(toExpectation(updated), allocation))
+    return allocation
   }
 
   async postJournalEntry(n: NewJournalEntry): Promise<JournalEntry> {
@@ -611,7 +654,7 @@ class SqliteTx extends SqliteReader implements StoreTx {
     assertValidNewException(n)
     if (n.movementId != null) this.movement(n.tenantId, n.movementId)
     if (n.expectationId != null) this.expectation(n.tenantId, n.expectationId)
-    return toException(
+    const record = toException(
       this.one(
         `INSERT INTO exceptions (
            id, tenant_id, code, status, movement_id, expectation_id, account, asset, decimals, amount,
@@ -633,13 +676,15 @@ class SqliteTx extends SqliteReader implements StoreTx {
         ],
       )!,
     )
+    this.emit(exceptionChanged(record))
+    return record
   }
 
   async resolveException(tenantId: string, id: string, resolution: Resolution): Promise<ExceptionRecord> {
     const current = this.one('SELECT * FROM exceptions WHERE tenant_id = ? AND id = ?', [tenantId, id])
     if (current === undefined) throw new NotFoundError('exception', id)
     checkResolution(toException(current), resolution)
-    return toException(
+    const next = toException(
       this.one('UPDATE exceptions SET status = ?, resolved_at = ?, resolution_note = ? WHERE id = ? RETURNING *', [
         resolution.status,
         this.now().getTime(),
@@ -647,6 +692,8 @@ class SqliteTx extends SqliteReader implements StoreTx {
         id,
       ])!,
     )
+    this.emit(exceptionChanged(next))
+    return next
   }
 }
 

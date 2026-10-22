@@ -69,13 +69,13 @@ describe('SqliteStore', () => {
   it('migrates idempotently and records the schema version', async () => {
     const filename = freshFile()
     const store = new SqliteStore({ filename })
-    expect(await store.schemaVersion()).toEqual({ current: 0, latest: 3 })
+    expect(await store.schemaVersion()).toEqual({ current: 0, latest: 4 })
     await store.migrate()
     await store.migrate()
-    expect(await store.schemaVersion()).toEqual({ current: 3, latest: 3 })
+    expect(await store.schemaVersion()).toEqual({ current: 4, latest: 4 })
     await store.close()
     const db = new Database(filename, { readonly: true })
-    expect(db.pragma('user_version', { simple: true })).toBe(3)
+    expect(db.pragma('user_version', { simple: true })).toBe(4)
     expect(db.pragma('journal_mode', { simple: true })).toBe('wal')
     db.close()
   })
@@ -142,17 +142,18 @@ describe('SqliteStore', () => {
     await store.close()
   })
 
-  it('upgrades a version 1 database with data to version 2', async () => {
+  it('upgrades a version 1 database with data to the latest version', async () => {
     const filename = freshFile()
     const store = await freshStore(filename)
     await store.transaction((tx) => tx.setCursor({ tenantId: 't', network: 'n', source: 's', account: 'a' }, 'kept'))
     await store.close()
     const db = new Database(filename)
-    db.exec('DROP TABLE journal_lines; DROP TABLE journal_entries; PRAGMA user_version = 1')
+    db.exec('DROP TABLE journal_lines; DROP TABLE journal_entries; DROP TABLE events; PRAGMA user_version = 1')
     db.close()
     const upgraded = await freshStore(filename)
     expect(await upgraded.getCursor({ tenantId: 't', network: 'n', source: 's', account: 'a' })).toBe('kept')
     expect(await upgraded.listJournalEntries({ tenantId: 't' })).toEqual([])
+    expect(await upgraded.listEvents({ tenantId: 't' })).toEqual([])
     await upgraded.close()
   })
 

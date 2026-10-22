@@ -4,7 +4,7 @@
  * node-postgres returns `numeric` and `bigint` as strings, which is what we
  * want: they become `bigint` here and never pass through `number`.
  */
-import type { Allocation, ExceptionRecord, Expectation, JournalEntry, JournalLine, Json, Memo, Movement } from 'nostro'
+import type { Allocation, ExceptionRecord, Expectation, JournalEntry, JournalLine, Json, Memo, Movement, OutboxEvent } from 'nostro'
 import { Money, parseAsset } from 'nostro'
 
 export interface MovementRow {
@@ -34,6 +34,28 @@ export interface MovementRow {
   disposition: Movement['disposition']
   ignored_reason: string | null
   created_at: Date
+}
+
+export interface EventRow {
+  seq: string
+  id: string
+  tenant_id: string
+  type: OutboxEvent['type']
+  subject_id: string
+  payload: string
+  created_at: Date
+}
+
+export function toEvent(r: EventRow): OutboxEvent {
+  return Object.freeze({
+    id: r.id,
+    tenantId: r.tenant_id,
+    seq: Number(r.seq),
+    type: r.type,
+    subjectId: r.subject_id,
+    payload: JSON.parse(r.payload) as Json,
+    createdAt: r.created_at,
+  })
 }
 
 export interface ExpectationRow {

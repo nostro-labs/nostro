@@ -79,10 +79,10 @@ describe('nostro migrate', () => {
     const file = join(cwd, 'nostro.db')
     expect(await nostro(cwd, ['migrate'])).toMatchObject({
       code: 0,
-      stdout: `Migrated ${file} from schema version 0 to 3.\n`,
+      stdout: `Migrated ${file} from schema version 0 to 4.\n`,
     })
-    expect((await nostro(cwd, ['migrate'])).stdout).toBe(`${file} is up to date (schema version 3).\n`)
-    expect(JSON.parse((await nostro(cwd, ['migrate', '--json'])).stdout)).toEqual({ database: file, from: 3, to: 3 })
+    expect((await nostro(cwd, ['migrate'])).stdout).toBe(`${file} is up to date (schema version 4).\n`)
+    expect(JSON.parse((await nostro(cwd, ['migrate', '--json'])).stdout)).toEqual({ database: file, from: 4, to: 4 })
   })
 
   it('takes the database from --db or NOSTRO_DB, with or without a sqlite: prefix', async () => {
@@ -104,7 +104,7 @@ describe('nostro migrate', () => {
     setVersion(join(cwd, 'nostro.db'), 99)
     const { code, stderr } = await nostro(cwd, ['migrate'])
     expect(code).toBe(1)
-    expect(stderr).toMatch(/schema version 99, newer than this nostro understands \(3\)\. Upgrade nostro-cli; nothing was changed/)
+    expect(stderr).toMatch(/schema version 99, newer than this nostro understands \(4\)\. Upgrade nostro-cli; nothing was changed/)
   })
 
   it('refuses an in-memory database, which would vanish when it exits', async () => {
@@ -132,11 +132,11 @@ describe('opening a database', () => {
     await new SqliteStore({ filename: file }).close()
     expect((await nostro(cwd, ['reconcile'])).stderr).toBe(`nostro: ${file} has not been set up. Run "nostro migrate" first.\n`)
     setVersion(file, 1)
-    expect((await nostro(cwd, ['reconcile'])).stderr).toContain('is at schema version 1; this nostro needs 3. Run "nostro migrate".')
+    expect((await nostro(cwd, ['reconcile'])).stderr).toContain('is at schema version 1; this nostro needs 4. Run "nostro migrate".')
     setVersion(file, 99)
     const ahead = await nostro(cwd, ['reconcile'])
     expect(ahead.code).toBe(1)
-    expect(ahead.stderr).toContain('newer than this nostro understands (3). Upgrade nostro-cli.')
+    expect(ahead.stderr).toContain('newer than this nostro understands (4). Upgrade nostro-cli.')
   })
 
   it('reports an unreachable PostgreSQL without printing its password', async () => {
@@ -160,7 +160,7 @@ describe('opening a database', () => {
     try {
       const first = await nostro(cwd, ['migrate'], { env })
       expect(first.code).toBe(0)
-      expect(first.stdout).toContain(`(schema ${schema}) from schema version 0 to 2.`)
+      expect(first.stdout).toContain(`(schema ${schema}) from schema version 0 to 3.`)
       expect(first.stdout).not.toContain(':nostro@')
       const synced = await nostro(cwd, ['sync', '--account', A, '--json'], { env, fetch: paid().fetch })
       expect(synced.code).toBe(0)
