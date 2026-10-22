@@ -69,6 +69,8 @@ const report = await deliverWebhooks({ store, tenantId: 'acme', url: 'https://ex
 // { delivered, position, failure: { eventId, reason } | null, contended }
 ```
 
-Like `sync()`, a call is bounded: run it on a timer. Secrets must be at least 32 characters
+Like `sync()`, a call is bounded: run it on a timer, or let `nostro serve --webhook-url <url>` do it
+after each round (the secret comes only from `NOSTRO_WEBHOOK_SECRET`). The HTTP API serves the same
+log at `GET /v1/events` for clients that would rather poll. Secrets must be at least 32 characters
 (`openssl rand -hex 32`). Each destination keeps its own position (`consumer`, default `webhook`).
 Two deliverers sharing one consumer won't both advance it: the second one notices and stops.

@@ -1,6 +1,7 @@
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { verifyWebhook } from 'nostro'
 import { FakeHorizon } from 'nostro-testkit'
 import { main } from '../src/index.js'
 import { A, B, migrated, nostro } from './helpers.js'
@@ -59,11 +60,38 @@ describe('nostro serve', () => {
     await expect(fetch(`${server.address}/v1/health`)).rejects.toThrow()
   })
 
+  it('delivers each decision to the webhook, signed, and retries one that failed', async () => {
+    const cwd = await migrated()
+    const h = new FakeHorizon()
+    h.payment(10, B, A, '25', { memo: 'INV-1042' })
+    await nostro(cwd, ['expect', 'INV-1042', '--account', A, '--amount', '25', '--tenant', 'acme'])
+    const secret = 'w'.repeat(64)
+    const received: { headers: Record<string, string>; body: string }[] = []
+    let refuse = 1
+    const fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      if (!String(url).startsWith('https://hooks.example/')) return h.fetch(url, init)
+      if (refuse-- > 0) return new Response('busy', { status: 503 })
+      received.push({ headers: init!.headers as Record<string, string>, body: init!.body as string })
+      return new Response(null, { status: 204 })
+    }) as typeof globalThis.fetch
+    const server = await start(cwd, ['--account', A, '--tenant', 'acme', '--interval', '1', '--webhook-url', 'https://hooks.example/n'], {
+      env: { ...env, NOSTRO_WEBHOOK_SECRET: secret },
+      fetch,
+    })
+    expect(server.out.stdout).toContain("Delivering tenant acme's events to https://hooks.example/n.\n")
+    // One payment to A (B paid the fee): the invoice settles and the movement is decided.
+    await server.until(() => server.out.stdout.includes('delivered 2 event(s).'))
+    expect(server.out.stderr).toMatch(/Webhook failed on event \S+: HTTP 503; retrying next round\.\n/)
+    expect(received.map((r) => JSON.parse(r.body).type)).toEqual(['expectation.settled', 'movement.decided'])
+    expect(received.every((r) => verifyWebhook({ secret, header: r.headers['nostro-signature'], body: r.body }))).toBe(true)
+    expect(await server.stop()).toBe(0)
+  })
+
   it('serves the API alone when no account is watched, with keys from a file', async () => {
     const cwd = await migrated()
     writeFileSync(join(cwd, 'keys'), `# tenants\n\nacme:${KEY}\nother:${'o'.repeat(40)}\n`)
     const server = await start(cwd, ['--keys-file', 'keys'], { env: {} })
-    expect(server.out.stdout).toContain('No accounts to watch: serving the API only.\n')
+    expect(server.out.stdout).toContain('No accounts to watch and no webhook: serving the API only.\n')
     expect((await server.get('/v1/movements')).status).toBe(200)
     expect((await server.get('/v1/movements', 'o'.repeat(40))).status).toBe(200)
     expect(await server.stop()).toBe(0)
@@ -92,6 +120,10 @@ describe('nostro serve', () => {
     expect((await run(['--port', '70000'])).code).toBe(2)
     expect((await run([], { ...env, NOSTRO_PORT: 'http' })).code).toBe(2)
     expect((await run(['--interval', '0'])).code).toBe(2)
+    expect((await run(['--webhook-url', 'https://hooks.example/n'])).stderr).toContain('A webhook needs NOSTRO_WEBHOOK_SECRET')
+    expect((await run(['--webhook-url', 'https://hooks.example/n'], { ...env, NOSTRO_WEBHOOK_SECRET: 'short' })).code).toBe(2)
+    expect((await run(['--webhook-url', 'hooks'])).stderr).toContain('--webhook-url must be a URL')
+    expect((await run(['--webhook-url', 'ftp://hooks.example'])).stderr).toContain('must be an http(s) URL')
     expect((await nostro(await migrated(), ['serve', '--db', 'missing.db'], { env })).stderr).toContain('No database at')
   })
 })

@@ -257,6 +257,26 @@ describe('exceptions and the journal', () => {
   })
 })
 
+describe('events', () => {
+  it('pages the event log, the same events webhooks deliver', async () => {
+    const app = server(await seeded())
+    const get = async (query: string) => (await app.inject({ url: `/v1/events?${query}`, headers: auth() })).json()
+    const all = await get('')
+    expect(all.data.map((e: { type: string }) => e.type)).toEqual([
+      'expectation.settled',
+      'movement.decided',
+      'exception.opened',
+      'movement.decided',
+      'movement.decided',
+    ])
+    expect(all.data[0].data.expectation).toMatchObject({ reference: 'INV-1042', status: 'settled', amount: '25.0000000' })
+    const first = await get('limit=2')
+    expect((await get(`after=${first.next}`)).data).toHaveLength(3)
+    expect((await app.inject({ url: '/v1/events', headers: auth(OTHER_KEY) })).json()).toEqual({ data: [], next: null })
+    expect((await app.inject({ url: '/v1/events?type=x', headers: auth() })).statusCode).toBe(400)
+  })
+})
+
 describe('errors', () => {
   it('answers an unknown route with a problem, not an HTML page', async () => {
     const res = await server(new MemoryStore()).inject('/v2/nothing')

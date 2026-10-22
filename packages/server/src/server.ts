@@ -26,6 +26,7 @@ import {
   journalCsvRows,
   journalEntryJson,
   movementJson,
+  outboxEventJson,
   parseAsset,
 } from 'nostro'
 import type { Authenticate } from './auth.js'
@@ -299,6 +300,10 @@ export function createServer(options: ServerOptions): FastifyInstance {
             q.limit,
             exceptionJson,
           ),
+      )
+
+      v1.get<{ Querystring: Paging }>('/events', { schema: list({}) }, async ({ tenantId, query: q }) =>
+        page(await store.listEvents({ tenantId, limit: q.limit, ...after(q) }), q.limit, outboxEventJson),
       )
 
       const range = { from: { type: 'string', format: 'date-time' }, to: { type: 'string', format: 'date-time' } }

@@ -25,6 +25,7 @@ await app.listen({ port: 8080 })
 | `GET /v1/exceptions` | `?status=`, `?code=` |
 | `GET /v1/journal` | `?from=`, `?to=` (ISO 8601, effective dates) |
 | `GET /v1/journal.csv` | the journal as CSV, streamed |
+| `GET /v1/events` | the event log ([docs/webhooks.md](../../docs/webhooks.md)), for clients that would rather poll than receive webhooks |
 
 - **Authentication.** `Authorization: Bearer <key>`. The key decides the tenant, so a caller can never
   ask for another tenant's records. `apiKeys()` keeps only SHA-256 digests of the keys, compares in
@@ -40,6 +41,6 @@ await app.listen({ port: 8080 })
   query parameter or body field the API does not know is a 400, not silently ignored. A 500 says
   nothing about the server's insides.
 
-Not here yet: webhooks for decisions, an OpenAPI document, and a container image.
+Not here yet: an OpenAPI document and a container image. Webhooks are delivered by `nostro serve --webhook-url`, or by calling `deliverWebhooks()` from `nostro`.
 
 **Status:** pre-alpha, not yet published.
