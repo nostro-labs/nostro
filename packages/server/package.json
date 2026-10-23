@@ -38,7 +38,10 @@
     "nostro": "workspace:*"
   },
   "devDependencies": {
+    "@apidevtools/swagger-parser": "13.1.0",
     "@vitest/coverage-v8": "^2.1.8",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
     "nostro": "workspace:*",
     "nostro-testkit": "workspace:*",
     "typescript": "^5.7.2",

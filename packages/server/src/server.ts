@@ -12,9 +12,6 @@ import type { FastifyError, FastifyInstance, FastifyServerOptions } from 'fastif
 import type { AssetId, Disposition, ExceptionCode, ExceptionStatus, ExpectationStatus, Memo, NewExpectation, Store } from 'nostro'
 import {
   ConstraintError,
-  DISPOSITIONS,
-  EXCEPTION_CODES,
-  EXPECTATION_STATUSES,
   InvalidAssetError,
   Money,
   NATIVE,
@@ -30,7 +27,9 @@ import {
   parseAsset,
 } from 'nostro'
 import type { Authenticate } from './auth.js'
+import { buildOpenApi } from './openapi.js'
 import { HttpProblem } from './problem.js'
+import { UINT64, expectationBody, query } from './schemas.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -46,20 +45,7 @@ export interface ServerOptions {
   readonly logger?: FastifyServerOptions['logger']
 }
 
-const DEFAULT_LIMIT = 100
-const MAX_LIMIT = 500
-const ACCOUNT = '^G[A-Z2-7]{55}$'
-const UINT64 = '^[0-9]{1,20}$'
 const UINT64_MAX = (1n << 64n) - 1n
-
-const paging = {
-  after: { type: 'integer', minimum: 0 },
-  limit: { type: 'integer', minimum: 1, maximum: MAX_LIMIT, default: DEFAULT_LIMIT },
-} as const
-
-const list = (properties: Record<string, unknown>) => ({
-  querystring: { type: 'object', additionalProperties: false, properties: { ...paging, ...properties } },
-})
 
 interface Paging {
   after?: number
@@ -86,30 +72,6 @@ interface ExpectationBody {
   expiresAt?: string
   metadata?: Record<string, string>
 }
-
-const expectationBody = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['reference', 'account', 'amount'],
-  properties: {
-    reference: { type: 'string', minLength: 1, maxLength: 256 },
-    account: { type: 'string', pattern: ACCOUNT },
-    amount: { type: 'string', pattern: '^[0-9]+(\\.[0-9]+)?$' },
-    asset: { type: 'string', minLength: 1 },
-    direction: { enum: ['credit', 'debit'] },
-    muxedId: { type: 'string', pattern: UINT64 },
-    memo: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['type', 'value'],
-      properties: { type: { enum: ['text', 'id'] }, value: { type: 'string', minLength: 1 } },
-    },
-    payers: { type: 'array', maxItems: 100, items: { type: 'string', pattern: ACCOUNT } },
-    dueAt: { type: 'string', format: 'date-time' },
-    expiresAt: { type: 'string', format: 'date-time' },
-    metadata: { type: 'object', maxProperties: 50, additionalProperties: { type: 'string', maxLength: 1024 } },
-  },
-} as const
 
 /**
  * The validator coerces types, which querystrings need, but in a body it
@@ -207,6 +169,8 @@ export function createServer(options: ServerOptions): FastifyInstance {
   )
 
   app.get('/v1/health', async () => ({ ok: true }))
+  const openapi = buildOpenApi()
+  app.get('/v1/openapi.json', async () => openapi)
 
   app.register(
     async (v1) => {
@@ -220,7 +184,7 @@ export function createServer(options: ServerOptions): FastifyInstance {
 
       v1.get<{ Querystring: Paging & { disposition?: Disposition; account?: string } }>(
         '/movements',
-        { schema: list({ disposition: { enum: DISPOSITIONS }, account: { type: 'string', pattern: ACCOUNT } }) },
+        { schema: { querystring: query.movements } },
         async ({ tenantId, query: q }) =>
           page(
             await store.listMovements({
@@ -249,12 +213,7 @@ export function createServer(options: ServerOptions): FastifyInstance {
 
       v1.get<{ Querystring: Paging & { status?: string; account?: string } }>(
         '/expectations',
-        {
-          schema: list({
-            status: { type: 'string', pattern: `^(${EXPECTATION_STATUSES.join('|')})(,(${EXPECTATION_STATUSES.join('|')}))*$` },
-            account: { type: 'string', pattern: ACCOUNT },
-          }),
-        },
+        { schema: { querystring: query.expectations } },
         async ({ tenantId, query: q }) =>
           page(
             await store.listExpectations({
@@ -287,7 +246,7 @@ export function createServer(options: ServerOptions): FastifyInstance {
 
       v1.get<{ Querystring: Paging & { status?: ExceptionStatus; code?: ExceptionCode } }>(
         '/exceptions',
-        { schema: list({ status: { enum: ['open', 'resolved', 'dismissed'] }, code: { enum: EXCEPTION_CODES } }) },
+        { schema: { querystring: query.exceptions } },
         async ({ tenantId, query: q }) =>
           page(
             await store.listExceptions({
@@ -302,11 +261,10 @@ export function createServer(options: ServerOptions): FastifyInstance {
           ),
       )
 
-      v1.get<{ Querystring: Paging }>('/events', { schema: list({}) }, async ({ tenantId, query: q }) =>
+      v1.get<{ Querystring: Paging }>('/events', { schema: { querystring: query.events } }, async ({ tenantId, query: q }) =>
         page(await store.listEvents({ tenantId, limit: q.limit, ...after(q) }), q.limit, outboxEventJson),
       )
 
-      const range = { from: { type: 'string', format: 'date-time' }, to: { type: 'string', format: 'date-time' } }
       const dates = (q: { from?: string; to?: string }) => ({
         ...(q.from === undefined ? {} : { effectiveFrom: new Date(q.from) }),
         ...(q.to === undefined ? {} : { effectiveBefore: new Date(q.to) }),
@@ -314,14 +272,14 @@ export function createServer(options: ServerOptions): FastifyInstance {
 
       v1.get<{ Querystring: Paging & { from?: string; to?: string } }>(
         '/journal',
-        { schema: list(range) },
+        { schema: { querystring: query.journal } },
         async ({ tenantId, query: q }) =>
           page(await store.listJournalEntries({ tenantId, limit: q.limit, ...after(q), ...dates(q) }), q.limit, journalEntryJson),
       )
 
       v1.get<{ Querystring: { from?: string; to?: string } }>(
         '/journal.csv',
-        { schema: { querystring: { type: 'object', additionalProperties: false, properties: range } } },
+        { schema: { querystring: query.journalCsv } },
         async ({ tenantId, query: q }, reply) => {
           const { effectiveFrom, effectiveBefore } = dates(q)
           const rows = journalCsvRows({

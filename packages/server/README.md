@@ -16,7 +16,8 @@ await app.listen({ port: 8080 })
 
 | Route | |
 |---|---|
-| `GET /v1/health` | `{ "ok": true }`; the only route that needs no key |
+| `GET /v1/health` | `{ "ok": true }`; needs no key |
+| `GET /v1/openapi.json` | the OpenAPI 3.1 document for all of this; needs no key |
 | `GET /v1/movements` | `?disposition=`, `?account=` |
 | `GET /v1/movements/{id}` | the movement, its allocations, exceptions and journal entries |
 | `GET /v1/expectations` | `?status=open,partially_paid`, `?account=` |
@@ -41,6 +42,10 @@ await app.listen({ port: 8080 })
   query parameter or body field the API does not know is a 400, not silently ignored. A 500 says
   nothing about the server's insides.
 
-Not here yet: an OpenAPI document and a container image. Webhooks are delivered by `nostro serve --webhook-url`, or by calling `deliverWebhooks()` from `nostro`.
+The OpenAPI document is built from the same schemas the server validates requests with, and tests
+check that it is valid, lists exactly the routes the server has, and matches real responses,
+errors included.
+
+Not here yet: a container image. Webhooks are delivered by `nostro serve --webhook-url`, or by calling `deliverWebhooks()` from `nostro`.
 
 **Status:** pre-alpha, not yet published.
