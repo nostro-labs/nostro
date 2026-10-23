@@ -109,6 +109,14 @@ describe('nostro serve', () => {
     expect(await server.stop()).toBe(0)
   })
 
+  it('says which address it is bound to', async () => {
+    const cwd = await migrated()
+    const server = await start(cwd, ['--host', '0.0.0.0'])
+    expect(server.address).toMatch(/^http:\/\/0\.0\.0\.0:\d+$/)
+    expect((await fetch(server.address.replace('0.0.0.0', '127.0.0.1') + '/v1/health')).status).toBe(200)
+    expect(await server.stop()).toBe(0)
+  })
+
   it('refuses to start without usable keys, a usable port, or an up-to-date database', async () => {
     const cwd = await migrated()
     const run = (argv: string[], e: Record<string, string> = env) => nostro(cwd, ['serve', ...argv], { env: e })

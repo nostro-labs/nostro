@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import type { AddressInfo } from 'node:net'
 import { resolve } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import type { Store } from 'nostro'
@@ -108,7 +109,10 @@ ${NETWORK_HELP}
     try {
       await assertCurrent(opened)
       const app = createServer({ store, authenticate })
-      const address = await app.listen({ port, host })
+      await app.listen({ port, host })
+      // Fastify reports one loopback address even when bound to every interface; say what was asked for.
+      const bound = (app.server.address() as AddressInfo).port
+      const address = `http://${host.includes(':') ? `[${host}]` : host}:${bound}`
       await write(io.stdout, `Listening on ${address} (database ${opened.label}).\n`)
 
       if (net === null && hook === null) {
