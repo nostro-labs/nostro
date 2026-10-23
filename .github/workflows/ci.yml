@@ -47,3 +47,21 @@ jobs:
       - run: pnpm -r typecheck
       - run: pnpm -r build
       - run: pnpm test
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t nostro:ci .
+      - name: Migrate, serve and stop cleanly
+        run: |
+          docker volume create nostro-ci
+          docker run --rm -v nostro-ci:/data nostro:ci migrate
+          docker run -d --name nostro-ci -v nostro-ci:/data -p 127.0.0.1:8080:8080 \
+            -e NOSTRO_API_KEYS="ci:$(openssl rand -hex 32)" nostro:ci
+          for i in $(seq 1 30); do curl -sf localhost:8080/v1/health && break; sleep 1; done
+          curl -sf localhost:8080/v1/openapi.json > /dev/null
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8080/v1/movements)" = 401
+          docker stop -t 10 nostro-ci
+          test "$(docker inspect -f '{{.State.ExitCode}}' nostro-ci)" = 0
+          docker logs nostro-ci | grep -q '^Stopped\.$'

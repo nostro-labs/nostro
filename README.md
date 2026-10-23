@@ -11,9 +11,10 @@
 > (`nostro-store-postgres`) stores that pass one shared conformance suite, and Horizon ingestion
 > (effects and fees) through a bounded `sync()` loop, matching through `reconcile()`, and a
 > double-entry journal posted as movements are decided, with CSV export, `doctor()`, which checks
-> all three invariants, and a `nostro` command line over all of it (`nostro-cli`). The server is in
-> progress — see [Roadmap](#roadmap). Nothing here is production-ready yet, and this README marks
-> what exists versus what doesn't.
+> all three invariants, a `nostro` command line over all of it (`nostro-cli`), and an HTTP API with
+> signed webhooks (`nostro-server`, `nostro serve`), with an OpenAPI document and a container image.
+> Nothing is on npm yet — see [Roadmap](#roadmap). Nothing here is production-ready yet, and this
+> README marks what exists versus what doesn't.
 
 ## The problem
 
@@ -128,6 +129,15 @@ version it expects. On testnet, `nostro doctor --attest` matched three accounts 
 and 53,740 movements to the stroop in every asset. All the commands and options are in
 [packages/cli](./packages/cli/README.md). It is not on npm yet: from a checkout, `pnpm build`, then
 run `node packages/cli/dist/bin.js`.
+
+## As a service (works today)
+
+`nostro serve` runs the HTTP API ([packages/server](./packages/server/README.md), with an OpenAPI
+document at `/v1/openapi.json`), keeps the watched accounts synced and reconciled, and posts each
+decision to a URL as a signed webhook ([docs/webhooks.md](./docs/webhooks.md)). Events are written
+in the same transaction as the decisions they announce, so a webhook never reports a payment that
+rolled back, and none is lost to a crash. [examples/docker-compose](./examples/docker-compose) runs
+it with PostgreSQL and a receiver that verifies every signature; the `Dockerfile` builds the image.
 
 ## What it does
 

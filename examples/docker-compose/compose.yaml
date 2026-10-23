@@ -1,0 +1,64 @@
+# nostro with PostgreSQL, delivering webhooks to a receiver that checks
+# every signature. See README.md.
+name: nostro-example
+
+x-nostro: &nostro
+  build: ../..
+  image: nostro:example
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nostro
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in .env}
+      POSTGRES_DB: nostro
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'nostro']
+      interval: 2s
+      retries: 30
+
+  # Creates or upgrades the schema, then exits. `serve` never changes it.
+  migrate:
+    <<: *nostro
+    command: ['migrate']
+    environment:
+      NOSTRO_DB: postgres://nostro:${POSTGRES_PASSWORD}@postgres:5432/nostro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  nostro:
+    <<: *nostro
+    command: ['serve']
+    restart: unless-stopped
+    environment:
+      NOSTRO_DB: postgres://nostro:${POSTGRES_PASSWORD}@postgres:5432/nostro
+      NOSTRO_API_KEYS: ${NOSTRO_API_KEYS:?set it in .env}
+      NOSTRO_TENANT: ${NOSTRO_TENANT:-default}
+      NOSTRO_NETWORK: ${NOSTRO_NETWORK:-testnet}
+      NOSTRO_ACCOUNTS: ${NOSTRO_ACCOUNTS:-}
+      NOSTRO_WEBHOOK_URL: http://receiver:3000/hooks
+      NOSTRO_WEBHOOK_SECRET: ${NOSTRO_WEBHOOK_SECRET:?set it in .env}
+    ports:
+      - 127.0.0.1:8080:8080
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      receiver:
+        condition: service_started
+
+  # Your application's side: verify, then store, then answer 2xx.
+  receiver:
+    <<: *nostro
+    entrypoint: ['node', '/app/receiver.mjs']
+    command: []
+    environment:
+      NOSTRO_WEBHOOK_SECRET: ${NOSTRO_WEBHOOK_SECRET}
+    volumes:
+      - ./receiver.mjs:/app/receiver.mjs:ro
+
+volumes:
+  pgdata:
