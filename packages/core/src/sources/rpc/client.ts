@@ -42,6 +42,8 @@ export interface RpcEvent {
 }
 
 export interface GetEventsResult {
+  /** Tip observed by the responding server. A paginated response can still have unread events. */
+  latestLedger?: number
   events: RpcEvent[]
   /** Cursor to pass as `cursor` in the next request. */
   cursor: string | null
@@ -84,8 +86,11 @@ export class StellarRpcClient {
     filters?: GetEventsFilter[]
     limit?: number
   }): Promise<GetEventsResult> {
-    const result = await this.call<{ events: RpcEvent[]; cursor: string }>('getEvents', params)
+    const result = await this.call<GetEventsResult>('getEvents', params)
+    const tip = result.latestLedger
     return {
+      ...(typeof tip === 'number' && Number.isInteger(tip) && tip > 0 && tip <= 0xffffffff
+        ? { latestLedger: tip } : {}),
       events: result.events ?? [],
       cursor: result.cursor ?? null,
     }

@@ -14,6 +14,42 @@ const effects = (h: FakeHorizon, options: Partial<ConstructorParameters<typeof H
 const pull = (source: HorizonEffectsSource | HorizonFeesSource, cursor: string | null, limit = 10, account = A) =>
   source.pull({ tenantId: T, account, cursor, limit })
 
+describe('Horizon records and cursor pins', () => {
+  it('pins the two feeds independently before new payments arrive', async () => {
+    const h = new FakeHorizon()
+    const effectSource = effects(h)
+    const feeSource = new HorizonFeesSource({ client: h.client(), network: 'testnet' })
+    expect(await effectSource.latestCursor(A)).toBe('0')
+    h.payment(10, A, B, '1')
+    h.transactions[0] = { ...h.transactions[0]!, successful: false }
+    const effectsPin = await effectSource.latestCursor(A)
+    const feesPin = await feeSource.latestCursor(A)
+    expect(feesPin).toBe(toid(10, 0))
+
+    h.payment(11, A, B, '2')
+    expect((await pull(effectSource, effectsPin)).movements.map((m) => m.ledger)).toEqual([11])
+    expect((await pull(feeSource, feesPin)).movements.map((m) => m.ledger)).toEqual([11])
+  })
+
+  it('returns raw inputs for the consumed operations only when requested', async () => {
+    const h = new FakeHorizon()
+    const first = h.payment(10, B, A, '1', { listed: false })
+    h.payment(11, B, A, '2', { listed: false })
+    h.payment(12, B, A, '3') // prefetched, beyond the lookup budget
+    const source = effects(h, { lookupBudget: 1 })
+    const request = { tenantId: T, account: A, cursor: null, limit: 10 }
+    expect((await source.pull(request)).sourceRecords).toBeUndefined()
+    const page = await source.pull({ ...request, includeSourceRecords: true })
+    expect(page.sourceRecords?.effects.map((e) => e.paging_token)).toEqual([page.cursor])
+    expect(page.sourceRecords?.operations).toEqual([h.operations.get(first)])
+
+    const fees = new HorizonFeesSource({ client: h.client(), network: 'testnet' })
+    const feePage = await fees.pull({ ...request, includeSourceRecords: true })
+    expect(feePage.sourceRecords?.transactions).toEqual(h.transactions)
+    expect((await fees.pull(request)).sourceRecords).toBeUndefined()
+  })
+})
+
 describe('HorizonEffectsSource', () => {
   it('cuts pages on operation boundaries and loses nothing', async () => {
     const h = new FakeHorizon()

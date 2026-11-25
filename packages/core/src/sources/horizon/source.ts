@@ -113,20 +113,30 @@ async function pageOrEmpty<T extends { paging_token: string }>(
   }
 }
 
-/**
- * Resolve where an account with no cursor starts. "Latest" pins the newest
- * record now, so nothing after it can be skipped; an account with no history
- * reads from the start, so its first records cannot be skipped either.
- */
-async function startCursor(
+/** Return the inclusive end of the feed as observed now, or zero for a new account. */
+async function latestCursor(
   client: HorizonClient,
-  start: 'earliest' | 'latest',
   path: string,
   query: Record<string, string | number | boolean | undefined> = {},
 ): Promise<string> {
-  if (start === 'earliest') return FROM_START
   const newest = await pageOrEmpty(client, path, { ...query, order: 'desc', limit: 1 })
   return newest.lastCursor ?? FROM_START
+}
+
+export interface HorizonPullRequest extends PullRequest {
+  /** Include the normaliser inputs in this pull for inspection or replay. */
+  readonly includeSourceRecords?: boolean
+}
+
+export interface HorizonEffectsPullResult extends PullResult {
+  readonly sourceRecords?: {
+    readonly effects: readonly HorizonEffect[]
+    readonly operations: readonly HorizonOperation[]
+  }
+}
+
+export interface HorizonFeesPullResult extends PullResult {
+  readonly sourceRecords?: { readonly transactions: readonly HorizonTransaction[] }
 }
 
 export class HorizonEffectsSource implements MovementSource {
@@ -145,11 +155,21 @@ export class HorizonEffectsSource implements MovementSource {
     this.maxPagesPerOperation = options.maxPagesPerOperation ?? 50
   }
 
-  async pull({ tenantId, account, cursor, limit }: PullRequest): Promise<PullResult> {
+  /** Capture the effects position to pass as the exclusive cursor on a later live pull. */
+  latestCursor(account: string): Promise<string> {
+    return latestCursor(this.client, `/accounts/${account}/effects`)
+  }
+
+  async pull({ tenantId, account, cursor, limit, includeSourceRecords }: HorizonPullRequest): Promise<HorizonEffectsPullResult> {
     const path = `/accounts/${account}/effects`
-    const from = cursor ?? (await startCursor(this.client, this.start, path))
+    const from = cursor ?? (this.start === 'latest' ? await this.latestCursor(account) : FROM_START)
     const page = await pageOrEmpty<HorizonEffect>(this.client, path, { order: 'asc', limit, cursor: from })
-    if (page.records.length === 0) return { movements: [], cursor: from, caughtUp: true }
+    if (page.records.length === 0) {
+      return {
+        movements: [], cursor: from, caughtUp: true,
+        ...(includeSourceRecords ? { sourceRecords: { effects: [], operations: [] } } : {}),
+      }
+    }
 
     const first = page.records[0]!
     const gap = await retentionGap(
@@ -166,12 +186,17 @@ export class HorizonEffectsSource implements MovementSource {
     const { operations, stopAt } = await this.enrich(account, records)
     if (stopAt !== null) {
       records = records.filter((r) => BigInt(operationIdOf(r)) < stopAt)
+      if (includeSourceRecords) {
+        // Enrichment can prefetch listed operations beyond the first missing lookup.
+        for (const id of operations.keys()) if (BigInt(id) >= stopAt) operations.delete(id)
+      }
       caughtUp = false
     }
 
     const ctx: NormalizeContext = { tenantId, network: this.network, source: this.name, account }
     return {
       movements: normalizeEffects(records, operations, ctx),
+      ...(includeSourceRecords ? { sourceRecords: { effects: records, operations: [...operations.values()] } } : {}),
       cursor: records[records.length - 1]!.paging_token,
       caughtUp,
       ...(gap === null ? {} : { gap }),
@@ -269,10 +294,15 @@ export class HorizonFeesSource implements MovementSource {
     this.start = options.start ?? 'earliest'
   }
 
-  async pull({ tenantId, account, cursor, limit }: PullRequest): Promise<PullResult> {
+  /** Include failed transactions when pinning the fee feed, just as a live pull does. */
+  latestCursor(account: string): Promise<string> {
+    return latestCursor(this.client, `/accounts/${account}/transactions`, { include_failed: true })
+  }
+
+  async pull({ tenantId, account, cursor, limit, includeSourceRecords }: HorizonPullRequest): Promise<HorizonFeesPullResult> {
     const path = `/accounts/${account}/transactions`
     // Failed transactions still pay fees.
-    const from = cursor ?? (await startCursor(this.client, this.start, path, { include_failed: true }))
+    const from = cursor ?? (this.start === 'latest' ? await this.latestCursor(account) : FROM_START)
     const page = await pageOrEmpty<HorizonTransaction>(this.client, path, {
       order: 'asc',
       limit,
@@ -285,6 +315,7 @@ export class HorizonFeesSource implements MovementSource {
     const ctx: NormalizeContext = { tenantId, network: this.network, source: this.name, account }
     return {
       movements: page.records.flatMap((tx) => normalizeFee(tx, ctx) ?? []),
+      ...(includeSourceRecords ? { sourceRecords: { transactions: page.records } } : {}),
       cursor: page.lastCursor ?? from,
       caughtUp: page.records.length < limit,
       ...(gap === null ? {} : { gap }),

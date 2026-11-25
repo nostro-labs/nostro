@@ -50,6 +50,8 @@ export interface RpcSourceContext {
 }
 
 export interface FetchMovementsResult {
+  /** Tip observed by getEvents, independent of how much this page consumed. */
+  latestLedger?: number
   movements: NewMovement[]
   /** New cursor to persist. Null when nothing was returned and cursor is unchanged. */
   cursor: string | null
@@ -121,7 +123,11 @@ export class RpcTokenEventsSource {
       }
     }
 
-    return { movements, cursor: result.cursor ?? cursor }
+    return {
+      movements,
+      cursor: result.cursor ?? cursor,
+      ...(result.latestLedger === undefined ? {} : { latestLedger: result.latestLedger }),
+    }
   }
 }
 
