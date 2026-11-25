@@ -1,0 +1,144 @@
+name: image
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Version without the leading v, e.g. 0.1.0"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version for a dry run, e.g. 0.0.0-dryrun.1 (pushes to your own namespace)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      image: ${{ steps.p.outputs.image }}
+      version: ${{ steps.p.outputs.version }}
+      tags: ${{ steps.p.outputs.tags }}
+      exists: ${{ steps.p.outputs.exists }}
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: p
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/nostro"
+          [[ "$VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-.+)?$ ]] || { echo "bad version: $VERSION"; exit 1; }
+          MAJOR="${BASH_REMATCH[1]}"; MINOR="${BASH_REMATCH[2]}"; PRE="${BASH_REMATCH[4]}"
+
+          TAGS="$VERSION"
+          if [ -z "$PRE" ]; then
+            TAGS="$TAGS $MAJOR.$MINOR latest"
+            # a bare major tag only from 1.0, because 0.x minors can break
+            [ "$MAJOR" != "0" ] && TAGS="$TAGS $MAJOR"
+          fi
+
+          if docker buildx imagetools inspect "$IMAGE:$VERSION" >/dev/null 2>&1; then
+            EXISTS=true
+          else
+            EXISTS=false
+          fi
+          {
+            echo "image=$IMAGE"
+            echo "version=$VERSION"
+            echo "tags=$TAGS"
+            echo "exists=$EXISTS"
+          } >> "$GITHUB_OUTPUT"
+          echo "image=$IMAGE version=$VERSION tags=[$TAGS] already_published=$EXISTS"
+
+  build:
+    name: build (${{ matrix.arch }})
+    needs: plan
+    if: needs.plan.outputs.exists != 'true'
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { arch: amd64, platform: linux/amd64, runner: ubuntu-24.04 }
+          - { arch: arm64, platform: linux/arm64, runner: ubuntu-24.04-arm }   # set to ubuntu-24.04 + add setup-qemu-action if native arm is not available
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build for smoke test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          load: true
+          provenance: false
+          tags: nostro:smoke
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+
+      - name: Smoke test (${{ matrix.arch }})
+        run: scripts/smoke-image.sh nostro:smoke
+
+      - name: Push per-architecture image with SBOM and provenance
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: ${{ needs.plan.outputs.image }}:${{ needs.plan.outputs.version }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=${{ matrix.arch }}
+
+  manifest:
+    needs: [plan, build]
+    if: needs.plan.outputs.exists != 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create multi-arch tags
+        env:
+          IMAGE: ${{ needs.plan.outputs.image }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          TAGS: ${{ needs.plan.outputs.tags }}
+        run: |
+          set -euo pipefail
+          # exact version tag LAST: it is the "already published" marker used by re-runs
+          for TAG in $TAGS; do
+            [ "$TAG" = "$VERSION" ] && continue
+            docker buildx imagetools create -t "$IMAGE:$TAG" "$IMAGE:$VERSION-amd64" "$IMAGE:$VERSION-arm64"
+          done
+          docker buildx imagetools create -t "$IMAGE:$VERSION" "$IMAGE:$VERSION-amd64" "$IMAGE:$VERSION-arm64"
+      - name: Show result
+        env:
+          IMAGE: ${{ needs.plan.outputs.image }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          docker buildx imagetools inspect "$IMAGE:$VERSION"
+          echo "### Published $IMAGE:$VERSION" >> "$GITHUB_STEP_SUMMARY"

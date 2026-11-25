@@ -98,3 +98,13 @@ jobs:
           git push origin "v$VERSION"
           awk -v v="$VERSION" '$0 ~ "^## "v" " {on=1; next} /^## / {on=0} on' CHANGELOG.md > notes.md
           gh release create "v$VERSION" --title "v$VERSION" --notes-file notes.md
+
+  # Container image: only after npm publish, tag and release all succeeded.
+  image:
+    needs: release
+    uses: ./.github/workflows/image.yml
+    with:
+      version: ${{ inputs.version }}
+    permissions:
+      contents: read
+      packages: write

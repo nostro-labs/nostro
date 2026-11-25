@@ -100,3 +100,25 @@ All seven published packages (`core`, `store-conformance`, `store-sqlite`, `stor
 Publishing needs an npm automation token in the `NPM_TOKEN` repository secret. Packages are published
 with provenance, which only works from CI, so a local `npm publish` is refused unless you pass
 `--no-provenance`. Don't do that for a real release.
+
+
+### Container image
+
+After the npm publish succeeds, `release.yml` calls `.github/workflows/image.yml`, which builds
+`ghcr.io/nostro-labs/nostro` for `linux/amd64` and `linux/arm64`, smoke-tests each architecture
+(`scripts/smoke-image.sh`), and pushes the tags `X.Y.Z`, `X.Y` and (stable releases only) `latest`.
+There is no bare `X` tag while the major version is 0. Pre-releases get only their exact tag.
+
+Re-running a release is safe: if `ghcr.io/nostro-labs/nostro:X.Y.Z` already exists the image step does nothing.
+
+To dry-run on a fork: Actions → image → Run workflow, version `0.0.0-dryrun.1`. It pushes to
+`ghcr.io/<your-user>/nostro`.
+
+Inspect the attestations:
+
+    docker buildx imagetools inspect ghcr.io/nostro-labs/nostro:X.Y.Z
+    docker buildx imagetools inspect ghcr.io/nostro-labs/nostro:X.Y.Z --format '{{ json .SBOM }}'
+    docker buildx imagetools inspect ghcr.io/nostro-labs/nostro:X.Y.Z --format '{{ json .Provenance }}'
+
+After the first push, a maintainer must make the package public and link it to the repository
+(Package settings on GitHub).
