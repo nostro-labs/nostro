@@ -1,0 +1,17 @@
+{
+  "name": "@nostro/bench",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "bench": "tsx src/run.ts",
+    "bench:compare": "tsx src/compare.ts",
+    "bench:noise": "tsx src/noise.ts"
+  },
+  "dependencies": {
+    "@nostro/testkit": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0"
+  }
+}

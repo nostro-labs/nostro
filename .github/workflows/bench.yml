@@ -1,0 +1,51 @@
+name: bench
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: bench }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NOSTRO_BENCH_PG_URL: postgres://postgres:bench@localhost:5432/postgres
+      BENCH_TIME_TOLERANCE: "1.5"   # replace with the value from your noise measurement
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      # ADAPT: copy the pnpm/node setup + install steps from the existing ci.yml
+      - run: pnpm install --frozen-lockfile
+
+      - name: Bench (this ref)
+        run: pnpm bench -- --sizes 10000 --out bench-head
+
+      - name: Bench main for comparison (PRs only)
+        if: github.event_name == 'pull_request'
+        run: |
+          git worktree add ../base origin/main
+          cd ../base && pnpm install --frozen-lockfile
+          pnpm bench -- --sizes 10000 --out ../nostro/bench-base
+          # if main has no bench yet (first PR), this step fails: allow it
+        continue-on-error: true
+
+      - name: Compare
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ -f bench-base/latest.json ]; then
+            pnpm --filter @nostro/bench bench:compare ../../bench-base/latest.json ../../bench-head/latest.json
+          else
+            echo "No baseline on main yet; skipping compare."
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ github.sha }}
+          path: bench-head/
